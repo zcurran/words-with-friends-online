@@ -1,4 +1,4 @@
-﻿// Board & Rack UI Controller (Drag-and-Drop, Touch/Tap Placement, Live Score Preview)
+// Board & Rack UI Controller (Drag-and-Drop, Touch/Tap Placement, Live Score Preview)
 class BoardController {
   constructor(game, elements) {
     this.game = game;
@@ -155,6 +155,7 @@ class BoardController {
     // Drag over board
     boardEl.addEventListener('dragover', (e) => {
       e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
       const cell = e.target.closest('.board-cell');
       if (cell) cell.classList.add('drag-over');
     });
@@ -174,31 +175,129 @@ class BoardController {
       const r = parseInt(cell.dataset.r);
       const c = parseInt(cell.dataset.c);
 
+      let data = this.draggedTileData;
+      if (!data && e.dataTransfer) {
+        try { data = JSON.parse(e.dataTransfer.getData('text/plain')); } catch (err) {}
+      }
+      if (!data) return;
+
+      // If dropped onto the exact same cell, do nothing
+      if (data.from === 'board' && data.r === r && data.c === c) {
+        this.draggedTileData = null;
+        return;
+      }
+
       // Cannot place on already filled square
       if (this.game.board[r][c] || this.stagedTiles.has(r + ',' + c)) {
         AUDIO.playBuzz();
         return;
       }
 
-      if (!this.draggedTileData) return;
-
-      if (this.draggedTileData.from === 'board') {
-        this.stagedTiles.delete(this.draggedTileData.r + ',' + this.draggedTileData.c);
+      if (data.from === 'board') {
+        this.stagedTiles.delete(data.r + ',' + data.c);
       }
 
-      if (this.draggedTileData.isBlank) {
+      if (data.isBlank) {
         this.promptBlankTileChoice((chosenLetter) => {
           this.stageTile(r, c, {
             letter: chosenLetter.toUpperCase(),
             points: 0,
             isBlank: true,
-            rackIndex: this.draggedTileData.rackIndex
+            rackIndex: data.rackIndex
           });
         });
       } else {
-        this.stageTile(r, c, this.draggedTileData);
+        this.stageTile(r, c, data);
       }
 
+      this.draggedTileData = null;
+    });
+
+    // Drop on Tray / Rack to return tiles or reorder rack
+    const rackShelfEl = document.querySelector('.rack-shelf-container') || rackEl;
+
+    const handleRackDragOver = (e) => {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      const slot = e.target.closest('.rack-slot');
+      if (slot) {
+        slot.classList.add('drag-over');
+      } else {
+        rackShelfEl.classList.add('drag-over');
+      }
+    };
+
+    const handleRackDragLeave = (e) => {
+      const slot = e.target.closest('.rack-slot');
+      if (slot) slot.classList.remove('drag-over');
+      if (!rackShelfEl.contains(e.relatedTarget)) {
+        rackShelfEl.classList.remove('drag-over');
+      }
+    };
+
+    const handleRackDrop = (e) => {
+      e.preventDefault();
+      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+
+      let data = this.draggedTileData;
+      if (!data && e.dataTransfer) {
+        try { data = JSON.parse(e.dataTransfer.getData('text/plain')); } catch (err) {}
+      }
+      if (!data) return;
+
+      if (data.from === 'board') {
+        // Return staged tile from board back to the rack / tray!
+        this.stagedTiles.delete(data.r + ',' + data.c);
+
+        // If dropped on a specific rack slot, place it there
+        const targetSlot = e.target.closest('.rack-slot');
+        if (targetSlot) {
+          const targetIndex = parseInt(targetSlot.dataset.index);
+          const sourceIndex = data.rackIndex;
+          if (!isNaN(targetIndex) && !isNaN(sourceIndex) && targetIndex !== sourceIndex) {
+            const player = this.game.getCurrentPlayer();
+            if (player && player.rack) {
+              const tile = player.rack.splice(sourceIndex, 1)[0];
+              player.rack.splice(targetIndex, 0, tile);
+            }
+          }
+        }
+
+        AUDIO.playTileClick();
+        this.renderBoard();
+        this.renderRack();
+      } else if (data.from === 'rack') {
+        // Reordering tiles within rack tray
+        const targetSlot = e.target.closest('.rack-slot');
+        if (targetSlot) {
+          const targetIndex = parseInt(targetSlot.dataset.index);
+          const sourceIndex = data.rackIndex;
+          if (!isNaN(targetIndex) && !isNaN(sourceIndex) && targetIndex !== sourceIndex) {
+            const player = this.game.getCurrentPlayer();
+            if (player && player.rack) {
+              const tile = player.rack.splice(sourceIndex, 1)[0];
+              player.rack.splice(targetIndex, 0, tile);
+              AUDIO.playTileClick();
+              this.renderRack();
+            }
+          }
+        }
+      }
+
+      this.draggedTileData = null;
+    };
+
+    rackEl.addEventListener('dragover', handleRackDragOver);
+    rackEl.addEventListener('dragleave', handleRackDragLeave);
+    rackEl.addEventListener('drop', handleRackDrop);
+
+    rackShelfEl.addEventListener('dragover', handleRackDragOver);
+    rackShelfEl.addEventListener('dragleave', handleRackDragLeave);
+    rackShelfEl.addEventListener('drop', handleRackDrop);
+
+    // Global dragend to clean up any leftover hover highlights
+    document.addEventListener('dragend', () => {
+      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
       this.draggedTileData = null;
     });
 

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Test Drag Tile Back to Rack</title>
+  <link rel="stylesheet" href="../css/board.css">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    body { background: #1a202c; color: #fff; padding: 20px; font-family: sans-serif; }
+    .test-result { padding: 8px 12px; margin: 6px 0; border-radius: 4px; font-weight: bold; }
+    .test-pass { background: #2e7d32; }
+    .test-fail { background: #c62828; }
+  </style>
+</head>
+<body>
+  <h2>Test: Drag Tile Back to Tray / Rack</h2>
+  <div id="test-log"></div>
+
+  <!-- Hidden test DOM -->
+  <div style="visibility: hidden; position: absolute;">
+    <div id="score-preview"></div>
+    <div id="scrabble-board"></div>
+    <div class="rack-shelf-container">
+      <div id="rack-tiles"></div>
+      <div class="action-buttons-row">
+        <button id="btn-play"></button>
+        <button id="btn-shuffle"></button>
+        <button id="btn-recall"></button>
+        <button id="btn-swap"></button>
+        <button id="btn-pass"></button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/config.js"></script>
+  <script src="../js/dictionary.js"></script>
+  <script src="../js/rules.js"></script>
+  <script src="../js/audio.js"></script>
+  <script src="../js/network.js"></script>
+  <script src="../js/board.js"></script>
+  <script src="../js/game.js"></script>
+  <script>
+    (function runTest() {
+      DICTIONARY.loadEmbeddedWords();
+      const log = document.getElementById('test-log');
+
+      function assert(name, condition, msg = '') {
+        const div = document.createElement('div');
+        div.className = 'test-result ' + (condition ? 'test-pass' : 'test-fail');
+        div.innerText = (condition ? '✓ PASS: ' : '✗ FAIL: ') + name + (msg ? ' (' + msg + ')' : '');
+        log.appendChild(div);
+        return condition;
+      }
+
+      const game = new ScrabbleGame();
+      const elements = {
+        boardEl: document.getElementById('scrabble-board'),
+        rackEl: document.getElementById('rack-tiles'),
+        previewEl: document.getElementById('score-preview'),
+        playBtn: document.getElementById('btn-play')
+      };
+      const boardCtrl = new BoardController(game, elements);
+
+      game.startNewGame({
+        playerConfigs: [{ name: 'Tester', isBot: false }],
+        mode: 'WWF'
+      });
+      boardCtrl.renderBoard();
+      boardCtrl.renderRack();
+
+      const player = game.getCurrentPlayer();
+      const originalFirstTile = { ...player.rack[0] };
+
+      // 1. Stage a tile on the board (e.g. at 7, 7)
+      boardCtrl.stageTile(7, 7, {
+        letter: originalFirstTile.letter,
+        points: originalFirstTile.points,
+        isBlank: originalFirstTile.isBlank,
+        rackIndex: 0
+      });
+
+      assert('Tile staged at (7, 7)', boardCtrl.stagedTiles.has('7,7'));
+      const slot0 = document.querySelector('.rack-slot[data-index="0"]');
+      assert('Rack slot 0 is empty-slot', slot0.classList.contains('empty-slot'));
+
+      // 2. Simulate drag start of staged tile from board
+      const stagedTileEl = document.querySelector('.board-cell[data-r="7"][data-c="7"] .staged-tile');
+      assert('Staged tile exists in DOM at (7, 7)', !!stagedTileEl);
+
+      const mockDataTransfer = {
+        data: {},
+        setData(k, v) { this.data[k] = v; },
+        getData(k) { return this.data[k]; },
+        dropEffect: 'none',
+        effectAllowed: 'none'
+      };
+
+      const dragStartEvt = new Event('dragstart', { bubbles: true });
+      dragStartEvt.dataTransfer = mockDataTransfer;
+      stagedTileEl.dispatchEvent(dragStartEvt);
+
+      assert('DraggedTileData populated from board', boardCtrl.draggedTileData && boardCtrl.draggedTileData.from === 'board');
+
+      // 3. Simulate dragover on rack tray (.rack-shelf-container)
+      const rackShelf = document.querySelector('.rack-shelf-container');
+      const dragOverEvt = new Event('dragover', { bubbles: true, cancelable: true });
+      dragOverEvt.dataTransfer = mockDataTransfer;
+      rackShelf.dispatchEvent(dragOverEvt);
+
+      assert('Dragover was preventDefaulted', dragOverEvt.defaultPrevented);
+
+      // 4. Simulate drop onto rack shelf
+      const dropEvt = new Event('drop', { bubbles: true, cancelable: true });
+      dropEvt.dataTransfer = mockDataTransfer;
+      rackShelf.dispatchEvent(dropEvt);
+
+      assert('Tile unstaged from board', !boardCtrl.stagedTiles.has('7,7'));
+      const newSlot0 = document.querySelector('.rack-slot[data-index="0"]');
+      assert('Rack slot 0 restored with tile', newSlot0 && !newSlot0.classList.contains('empty-slot'));
+      assert('Tile letter in slot matches original', newSlot0.querySelector('.tile-letter').textContent.trim() === (originalFirstTile.letter === '_' ? '' : originalFirstTile.letter));
+
+      // 5. Test dragging staged tile and dropping onto a specific rack slot
+      boardCtrl.stageTile(7, 7, {
+        letter: player.rack[0].letter,
+        points: player.rack[0].points,
+        isBlank: player.rack[0].isBlank,
+        rackIndex: 0
+      });
+      assert('Second staging at (7, 7) succeeded', boardCtrl.stagedTiles.has('7,7'));
+
+      // Drag start again
+      const stagedTileEl2 = document.querySelector('.board-cell[data-r="7"][data-c="7"] .staged-tile');
+      const dragStartEvt2 = new Event('dragstart', { bubbles: true });
+      dragStartEvt2.dataTransfer = mockDataTransfer;
+      stagedTileEl2.dispatchEvent(dragStartEvt2);
+
+      // Drop on slot index 3
+      const targetSlot3 = document.querySelector('.rack-slot[data-index="3"]');
+      const dropSlotEvt = new Event('drop', { bubbles: true, cancelable: true });
+      dropSlotEvt.dataTransfer = mockDataTransfer;
+      targetSlot3.dispatchEvent(dropSlotEvt);
+
+      assert('Tile unstaged after dropping on specific slot', !boardCtrl.stagedTiles.has('7,7'));
+      assert('Tray has all 7 tiles visible again', document.querySelectorAll('#rack-tiles .wood-tile').length === 7);
+
+      window.__TEST_RESULTS = {
+        allPassed: document.querySelectorAll('.test-fail').length === 0,
+        count: document.querySelectorAll('.test-result').length
+      };
+    })();
+  </script>
+</body>
+</html>

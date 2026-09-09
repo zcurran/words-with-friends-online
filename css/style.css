@@ -369,6 +369,22 @@ body {
   align-items: center;
 }
 
+.rack-shelf-container.drag-over {
+  box-shadow: 0 0 0 3px #ff9800, 0 8px 25px rgba(0, 0, 0, 0.6) !important;
+  background: linear-gradient(180deg, #6d4c41 0%, #4e342e 100%) !important;
+}
+
+#rack-tiles.drag-over {
+  background: rgba(255, 152, 0, 0.2) !important;
+}
+
+.rack-slot.drag-over {
+  background: rgba(255, 152, 0, 0.4) !important;
+  border: 2px dashed #ffd54f !important;
+  border-radius: 6px;
+  transform: scale(1.05);
+}
+
 .rack-slot.empty-slot {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 5px;
