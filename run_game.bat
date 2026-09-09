@@ -1,12 +1,20 @@
 @echo off
-title Words with Friends Web Server
+title Words with Friends Web Server (Node.js & Socket.io)
 cd /d "%~dp0"
 
-if not exist server\Server.exe (
-    echo Compiling standalone server...
-    "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /target:exe /out:server\Server.exe server\Server.cs
+echo Starting Words with Friends Game Server (Node.js + Socket.io)...
+start "" "http://localhost:8080/"
+
+where node >nul 2>nul
+if %errorlevel% equ 0 (
+    node server\server.js
+    goto :eof
 )
 
-echo Starting Words with Friends Game Server...
-start "" "http://localhost:8080/"
+if exist "C:\Users\zcurr\AppData\Local\Microsoft\WinGet\Packages\OpenJS.NodeJS.LTS_Microsoft.Winget.Source_8wekyb3d8bbwe\node-v24.19.0-win-x64\node.exe" (
+    "C:\Users\zcurr\AppData\Local\Microsoft\WinGet\Packages\OpenJS.NodeJS.LTS_Microsoft.Winget.Source_8wekyb3d8bbwe\node-v24.19.0-win-x64\node.exe" server\server.js
+    goto :eof
+)
+
+echo Node.js not found in PATH, launching standalone fallback...
 server\Server.exe 8080

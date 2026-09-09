@@ -27,7 +27,13 @@ A complete, modern, responsive web-based multiplayer word game designed to captu
    - **Blank Tile Wildcard Chooser:** Pick any letter (A–Z) when placing blank tiles.
    - **Procedural Sound Effects:** Wooden tile clicks, rack shuffle rattles, turn bell, and score fanfares synthesized via HTML5 Web Audio API.
 
-4. **172,800+ Word Tournament Dictionary:**
+4. **Node.js & Socket.io Backend Architecture:**
+   - **Centralized Session Store:** The Node.js server maintains active worlds in-memory with unique invite codes (e.g. `WWF-7249`).
+   - **Optional Password Protection:** Hosts can secure any world with a password. Unauthorized connections without matching credentials are systematically blocked.
+   - **Client-Side Join Function:** Connect programmatically or through the UI using `window.joinRoomWithCode(inviteCode, password, playerName)`.
+   - **Full State Synchronization:** Real-time synchronization of player seating positions (Seat 1 to 10), live uncommitted board tile placement, turns, score updates, and disconnect auto-advancement.
+
+5. **172,800+ Word Tournament Dictionary:**
    - Powered by the official ENABLE1 lexicon used in Words with Friends.
 
 ---
@@ -35,12 +41,19 @@ A complete, modern, responsive web-based multiplayer word game designed to captu
 ## 🚀 How to Play
 
 ### Option 1: 1-Click Launch (Recommended)
-Double-click **`run_game.bat`** in this folder. It starts the local HTTP & WebSocket server and automatically opens `http://localhost:8080/` in your browser.
+Double-click **`run_game.bat`** in this folder. It starts the Node.js + Socket.io server and automatically opens `http://localhost:8080/` in your browser.
 
-### Option 2: Direct Browser Play (Zero Installs)
+### Option 2: Running via npm / Node.js
+```bash
+npm install
+npm start
+```
+Then open `http://localhost:8080/` in your browser.
+
+### Option 3: Direct Browser Play (Zero Installs)
 Double-click **`index.html`** in any web browser (Chrome, Edge, Firefox, Safari). The game is fully functional offline with Pass & Play and AI Bots!
 
-### Option 3: Playing with Friends Across Devices
+### Option 4: Playing with Friends Across Devices
 When running `run_game.bat`, open command prompt and run `ipconfig` to find your local IPv4 address (e.g., `192.168.1.50`), and send this link to anyone on your Wi-Fi:
 ```
 http://192.168.1.50:8080/?room=YOUR_CODE

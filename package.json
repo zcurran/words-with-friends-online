@@ -1,0 +1,24 @@
+{
+  "name": "words-with-friends-online",
+  "version": "1.0.0",
+  "description": "Words with Friends / Scrabble Online Multiplayer (1 to 10 Players) with Node.js and Socket.io",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js"
+  },
+  "keywords": [
+    "scrabble",
+    "words-with-friends",
+    "socket.io",
+    "multiplayer",
+    "nodejs"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.8.3"
+  }
+}

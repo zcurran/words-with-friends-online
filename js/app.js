@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateHeaderName(localPlayerName);
 
   // Update header and lobby UI with room code and synchronize with URL and localStorage
-  function updateRoomUI(code, asHost = isHost) {
+  function updateRoomUI(code, asHost = isHost, hasPassword = false) {
     currentRoomCode = code;
     isHost = asHost;
     localStorage.setItem('wwf_room_code', code);
@@ -83,6 +83,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (elements.headerRoomCode) elements.headerRoomCode.innerText = code;
     const lobbyCodeEl = document.getElementById('lobby-friend-code');
     if (lobbyCodeEl) lobbyCodeEl.innerText = code;
+
+    const lockBadge = document.getElementById('header-lock-badge');
+    if (lockBadge) lockBadge.style.display = hasPassword ? 'inline' : 'none';
 
     // Keep URL parameter ?room=CODE updated in address bar so browser refresh retains room
     try {
@@ -470,7 +473,25 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  // Start Room Match (Host) - Never force-inject a bot
+  // Client-side function that allows a player to enter an invite code to connect to the specific server instance
+  window.joinRoomWithCode = function(inviteCode, password = null, playerName = null) {
+    if (!inviteCode) {
+      alert('Please provide a valid room code.');
+      return;
+    }
+    const cleanCode = inviteCode.toUpperCase().trim();
+    const name = (playerName || localPlayerName || 'Guest Player').trim();
+    localPlayerName = name;
+    localStorage.setItem('wwf_player_name', name);
+    updateHeaderName(name);
+    updateRoomUI(cleanCode, false);
+    game.network.playerName = name;
+    game.network.joinRoomWithCode(cleanCode, password, name);
+    const modal = document.getElementById('lobby-modal');
+    if (modal) modal.classList.add('hidden');
+  };
+
+  // Start Room Match (Host) - creates world on server with invite code and optional password
   const btnStartLobby = document.getElementById('btn-lobby-start-game');
   if (btnStartLobby) {
     btnStartLobby.onclick = () => {
@@ -478,8 +499,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const mode = modeRadio ? modeRadio.value : 'WWF';
       const timerSelect = document.getElementById('lobby-timer-select');
       const timerVal = timerSelect ? parseInt(timerSelect.value) : 0;
+      const passInp = document.getElementById('lobby-password-input');
+      const password = passInp ? passInp.value.trim() : null;
 
+      updateRoomUI(currentRoomCode, true, !!password);
       document.getElementById('lobby-modal').classList.add('hidden');
+      game.network.createRoomWithCode(currentRoomCode, password, { mode, timerMinutes: timerVal });
       game.startNewGame({
         playerConfigs: lobbyPlayers,
         mode: mode,
@@ -494,24 +519,47 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSubmitJoin.onclick = () => {
       const codeInput = document.getElementById('join-code-input');
       const nameInput = document.getElementById('join-name-input');
+      const passInput = document.getElementById('join-password-input');
       const code = (codeInput ? codeInput.value : '').toUpperCase().trim();
       const name = (nameInput ? nameInput.value : '').trim() || 'Guest Player';
+      const password = passInput ? passInput.value.trim() : null;
 
       if (!code) {
         alert('Please enter a valid Friend Code.');
         return;
       }
 
-      updateRoomUI(code, false);
-      localPlayerName = name;
-      localStorage.setItem('wwf_player_name', name);
-      updateHeaderName(name);
-      game.network.playerName = name;
-      game.network.setRoomCode(code, false);
-
-      document.getElementById('lobby-modal').classList.add('hidden');
+      window.joinRoomWithCode(code, password, name);
     };
   }
+
+  // Network event callbacks
+  game.network.onRoomCreated = (data) => {
+    updateRoomUI(data.inviteCode, true, data.hasPassword);
+  };
+
+  game.network.onRoomJoined = (data) => {
+    updateRoomUI(data.inviteCode, false, data.session && data.session.hasPassword);
+  };
+
+  game.network.onJoinError = (data) => {
+    if (data.code === 'INVALID_PASSWORD') {
+      const promptPass = prompt((data.message || 'Password required') + '\\n\\nPlease enter room password:');
+      if (promptPass !== null) {
+        window.joinRoomWithCode(currentRoomCode, promptPass, localPlayerName);
+      } else {
+        openLobbyModal();
+      }
+    } else {
+      alert(data.message || 'Unable to join room.');
+      openLobbyModal();
+    }
+  };
+
+  // Real-time synchronization of placed uncommitted tile positions
+  boardCtrl.onStagedChanged = (stagedList) => {
+    game.network.syncPlayerPositions(stagedList);
+  };
 
   // Local Pass & Play Roster Generation
   function renderLocalPlayerRows() {

@@ -21,7 +21,7 @@
 
     <div class="header-controls">
       <button class="header-btn room-badge-btn" id="btn-open-lobby">
-        👥 Room: <strong id="header-room-code" style="color: #ffd54f;">LOCAL</strong>
+        👥 Room: <strong id="header-room-code" style="color: #ffd54f;">LOCAL</strong> <span id="header-lock-badge" style="display:none;">🔒</span>
       </button>
       <button class="header-btn name-badge-btn" id="btn-change-name" title="Change your player name">
         👤 <span id="header-player-name">Player 1</span> ✏️
@@ -166,6 +166,11 @@
           </select>
         </div>
 
+        <div class="form-group">
+          <label class="form-label">🔒 Room Password (Optional)</label>
+          <input type="password" class="form-input" id="lobby-password-input" placeholder="Leave empty for open public room">
+        </div>
+
         <button class="btn-primary" id="btn-lobby-start-game">▶ Start Room Match</button>
       </div>
 
@@ -179,6 +184,11 @@
         <div class="form-group">
           <label class="form-label">Your Display Name</label>
           <input type="text" class="form-input" id="join-name-input" placeholder="Your Name" value="Guest Player">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">🔒 Room Password (If Required)</label>
+          <input type="password" class="form-input" id="join-password-input" placeholder="Enter password if room is protected">
         </div>
 
         <p style="font-size: 12px; color: #94a3b8; margin: 10px 0 16px; text-align: center;">Enter your friend's 4-digit code above or paste an invite link to connect immediately.</p>
@@ -283,6 +293,12 @@
   </div>
 
   <!-- Scripts -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    if (!window.io) {
+      document.write('<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"><\\/script>');
+    }
+  </script>
   <script src="js/config.js"></script>
   <script src="js/dictionary.js"></script>
   <script src="js/rules.js"></script>

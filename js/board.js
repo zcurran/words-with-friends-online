@@ -329,6 +329,7 @@ class BoardController {
         AUDIO.playTileClick();
         this.renderBoard();
         this.renderRack();
+        this.notifyStagedChanged();
         return;
       }
 
@@ -364,6 +365,19 @@ class BoardController {
     });
   }
 
+  notifyStagedChanged() {
+    if (this.onStagedChanged) {
+      const list = Array.from(this.stagedTiles.values()).map(t => ({
+        r: t.r,
+        c: t.c,
+        letter: t.letter,
+        points: t.points,
+        isBlank: !!t.isBlank
+      }));
+      this.onStagedChanged(list);
+    }
+  }
+
   // Put a tile into staging
   stageTile(r, c, tileData) {
     this.stagedTiles.set(r + ',' + c, {
@@ -378,6 +392,7 @@ class BoardController {
     AUDIO.playTileClick();
     this.renderBoard();
     this.renderRack();
+    this.notifyStagedChanged();
   }
 
   // Recall all staged tiles back to rack
@@ -387,6 +402,7 @@ class BoardController {
     AUDIO.playShuffle();
     this.renderBoard();
     this.renderRack();
+    this.notifyStagedChanged();
   }
 
   // Modal dialog for selecting a letter for blank wildcard tile
@@ -467,6 +483,7 @@ class BoardController {
       this.selectedRackIndex = null;
       this.renderBoard();
       this.renderRack();
+      this.notifyStagedChanged();
     }
   }
 }
