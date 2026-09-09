@@ -170,7 +170,7 @@ body {
   justify-content: space-between;
 }
 
-/* 2-5 Player Scoreboard Cards */
+/* 1-5 Player Scoreboard Cards */
 .players-list {
   display: flex;
   flex-direction: column;

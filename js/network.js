@@ -1,16 +1,27 @@
-﻿// Multiplayer Network Transport Manager (WebSocket, BroadcastChannel, and Friend Code Rooms)
+// Multiplayer Network Transport Manager (WebSocket, BroadcastChannel, and Friend Code Rooms)
 class NetworkManager {
   constructor(game) {
     this.game = game;
     this.ws = null;
     this.broadcast = null;
     this.roomCode = null;
-    this.playerId = 'player_' + Math.random().toString(36).substring(2, 8);
-    this.playerName = 'Player ' + Math.floor(1000 + Math.random() * 9000);
     this.isHost = false;
     this.connected = false;
 
-    // Listen to BroadcastChannel for multi-tab testing in same browser
+    // Use sessionStorage to preserve playerId across tab refresh, while giving new tabs unique IDs
+    try {
+      this.playerId = sessionStorage.getItem('wwf_session_player_id');
+      if (!this.playerId) {
+        this.playerId = 'player_' + Math.random().toString(36).substring(2, 8);
+        sessionStorage.setItem('wwf_session_player_id', this.playerId);
+      }
+    } catch (e) {
+      this.playerId = 'player_' + Math.random().toString(36).substring(2, 8);
+    }
+
+    this.playerName = 'Player ' + Math.floor(1000 + Math.random() * 9000);
+
+    // Listen to BroadcastChannel for instant multi-tab sync in same browser
     if (typeof BroadcastChannel !== 'undefined') {
       this.broadcast = new BroadcastChannel('scrabble_wwf_channel');
       this.broadcast.onmessage = (e) => this.handleMessage(e.data);
@@ -34,7 +45,12 @@ class NetworkManager {
             this.sendAction('ROOM_JOIN', {
               roomCode: this.roomCode,
               playerId: this.playerId,
-              playerName: this.playerName
+              playerName: this.playerName,
+              isHost: this.isHost
+            });
+            this.sendAction('REQUEST_SYNC', {
+              roomCode: this.roomCode,
+              playerId: this.playerId
             });
           }
           resolve(true);
@@ -67,13 +83,16 @@ class NetworkManager {
   setRoomCode(code, isHost = false) {
     this.roomCode = (code || '').toUpperCase().trim();
     this.isHost = isHost;
+    const joinPayload = {
+      roomCode: this.roomCode,
+      playerId: this.playerId,
+      playerName: this.playerName,
+      isHost: this.isHost
+    };
+
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.sendAction('ROOM_JOIN', {
-        roomCode: this.roomCode,
-        playerId: this.playerId,
-        playerName: this.playerName,
-        isHost: this.isHost
-      });
+      this.sendAction('ROOM_JOIN', joinPayload);
+      this.sendAction('REQUEST_SYNC', { roomCode: this.roomCode, playerId: this.playerId });
     }
     // Also notify broadcast peers
     if (this.broadcast) {
@@ -81,12 +100,13 @@ class NetworkManager {
         roomCode: this.roomCode,
         senderId: this.playerId,
         type: 'ROOM_JOIN',
-        payload: {
-          roomCode: this.roomCode,
-          playerId: this.playerId,
-          playerName: this.playerName,
-          isHost: this.isHost
-        }
+        payload: joinPayload
+      });
+      this.broadcast.postMessage({
+        roomCode: this.roomCode,
+        senderId: this.playerId,
+        type: 'REQUEST_SYNC',
+        payload: { roomCode: this.roomCode, playerId: this.playerId }
       });
     }
   }
@@ -111,7 +131,9 @@ class NetworkManager {
 
   handleMessage(msg) {
     if (!msg || msg.senderId === this.playerId) return; // ignore self
-    if (this.roomCode && msg.roomCode && msg.roomCode !== this.roomCode) return; // ignore other rooms
+    const myRoom = (this.roomCode || '').toUpperCase().trim();
+    const msgRoom = (msg.roomCode || '').toUpperCase().trim();
+    if (myRoom && msgRoom && myRoom !== msgRoom) return; // ignore other rooms
 
     console.log('[Network] Received action:', msg.type, msg.payload);
 

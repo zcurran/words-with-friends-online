@@ -1,6 +1,6 @@
-﻿# Words with Friends / Scrabble Online (2 to 5 Players)
+# Words with Friends / Scrabble Online (1 to 5 Players)
 
-A complete, modern, responsive web-based multiplayer word game designed to capture the authentic visual style, board layout, and rules of **Words with Friends**, with full support for **up to 5 players**.
+A complete, modern, responsive web-based multiplayer word game designed to capture the authentic visual style, board layout, and rules of **Words with Friends**, with full support for **1 to 5 players**.
 
 ---
 
@@ -11,10 +11,10 @@ A complete, modern, responsive web-based multiplayer word game designed to captu
    - **104-Tile Distribution:** Words with Friends letter frequencies and point values (e.g. J=10, Z=10, K=5, Q=10).
    - **+35 Bingo Bonus:** Playing all 7 tiles from your rack in a single turn awards a 35-point bonus (with a toggle for Classic Scrabble 50-point bonus if desired).
 
-2. **2 to 5 Player Multiplayer & Friend Codes:**
+2. **1 to 5 Player Multiplayer & Friend Codes:**
    - **Multiplayer Lobby:** Create private rooms with a unique **Friend Code** (e.g., `WWF-7249`).
    - **1-Click Invite Links:** Copy and share instant room links (`?room=CODE`) with friends.
-   - **Play with 2, 3, 4, or 5 players** in the same room.
+   - **Play with 1, 2, 3, 4, or 5 players** (solo practice, pass & play, or online with friends).
    - **Smart AI Bots:** Fill empty seats with computer players (Easy, Medium, or Hard difficulty).
    - **Custom Display Name:** Change your player name anytime via the header badge or scoreboard pencil (`✏️`).
 

@@ -1,4 +1,4 @@
-// Core Scrabble / Words with Friends Game State & Turn Engine (2-5 Players)
+// Core Scrabble / Words with Friends Game State & Turn Engine (1-5 Players)
 class ScrabbleGame {
   constructor() {
     this.config = GAME_CONFIG;
@@ -33,6 +33,10 @@ class ScrabbleGame {
         this.applyRemoteSwap(payload);
       } else if (type === 'ROOM_JOIN') {
         this.handleRemotePlayerJoin(payload);
+      } else if (type === 'REQUEST_SYNC') {
+        if (this.network && (this.network.isHost || (this.players[0] && this.players[0].id === this.network.playerId))) {
+          this.network.sendAction('STATE_SYNC', this.serializeState());
+        }
       } else if (type === 'PLAYER_RENAME') {
         const player = this.players.find(p => p.id === payload.playerId);
         if (player && payload.newName) {
@@ -184,8 +188,8 @@ class ScrabbleGame {
     this.startTurnTimer();
     this.notifyUpdate();
 
-    // Broadcast initial state to room if host
-    if (this.network && this.network.isHost) {
+    // Broadcast initial state to room
+    if (this.network) {
       this.network.sendAction('STATE_SYNC', this.serializeState());
     }
 

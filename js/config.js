@@ -1,4 +1,4 @@
-﻿// Game Configuration: Board Layouts, Tile Bags, Point Multipliers
+// Game Configuration: Board Layouts, Tile Bags, Point Multipliers
 const GAME_CONFIG = {
   // Words with Friends authentic 15x15 board layout
   WWF_BOARD: [
@@ -104,7 +104,7 @@ const GAME_CONFIG = {
   BINGO_BONUS_SCRABBLE: 50,  // Scrabble awards +50
   RACK_SIZE: 7,
   MAX_PLAYERS: 5,
-  MIN_PLAYERS: 2
+  MIN_PLAYERS: 1
 };
 
 if (typeof module !== 'undefined' && module.exports) {

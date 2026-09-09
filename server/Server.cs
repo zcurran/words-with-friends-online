@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Net;
 using System.Net.WebSockets;
@@ -19,7 +19,7 @@ public class GameServer {
         rootDir = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".."));
         Console.WriteLine("=================================================");
         Console.WriteLine("   Words with Friends / Scrabble Game Server");
-        Console.WriteLine("   Supporting up to 5 Players in Real-Time");
+        Console.WriteLine("   Supporting 1 to 5 Players in Real-Time");
         Console.WriteLine("=================================================");
         Console.WriteLine("Web Root: " + rootDir);
         Console.WriteLine(string.Format("Local URL:   http://localhost:{0}/", port));
@@ -81,10 +81,16 @@ public class GameServer {
                 string msg = Encoding.UTF8.GetString(buffer, 0, result.Count);
                 // Extract room if specified
                 if (msg.Contains("\"roomCode\"")) {
-                    int start = msg.IndexOf("\"roomCode\":\"") + 12;
-                    if (start > 12) {
-                        int end = msg.IndexOf("\"", start);
-                        if (end > start) currentRoom = msg.Substring(start, end - start);
+                    int keyIdx = msg.IndexOf("\"roomCode\"");
+                    int colonIdx = msg.IndexOf(":", keyIdx);
+                    if (colonIdx != -1) {
+                        int quote1 = msg.IndexOf("\"", colonIdx);
+                        if (quote1 != -1) {
+                            int quote2 = msg.IndexOf("\"", quote1 + 1);
+                            if (quote2 != -1) {
+                                currentRoom = msg.Substring(quote1 + 1, quote2 - quote1 - 1).ToUpper().Trim();
+                            }
+                        }
                     }
                 }
 
