@@ -103,7 +103,7 @@ const GAME_CONFIG = {
   BINGO_BONUS_WWF: 35,       // WWF awards +35 for using all 7 tiles
   BINGO_BONUS_SCRABBLE: 50,  // Scrabble awards +50
   RACK_SIZE: 7,
-  MAX_PLAYERS: 5,
+  MAX_PLAYERS: 10,
   MIN_PLAYERS: 1
 };
 

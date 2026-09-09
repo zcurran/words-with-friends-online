@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Words with Friends Online (1 to 5 Players)</title>
+  <title>Words with Friends Online (1 to 10 Players)</title>
   <link rel="stylesheet" href="css/board.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -38,11 +38,11 @@
   <!-- Main Game Content -->
   <main class="main-content">
     
-    <!-- Left Sidebar: 1-5 Player Scoreboard -->
+    <!-- Left Sidebar: 1-10 Player Scoreboard -->
     <aside class="sidebar-panel">
       <div class="panel-card">
         <div class="panel-title">
-          <span>Players (1 to 5)</span>
+          <span>Players (1 to 10)</span>
           <span id="player-count-indicator">1 Player</span>
         </div>
         <div class="players-list" id="players-scoreboard">
@@ -114,7 +114,7 @@
         <div class="friend-code-card">
           <span class="friend-code-label">YOUR FRIEND CODE</span>
           <div class="friend-code-display" id="lobby-friend-code">WWF-7249</div>
-          <p style="font-size: 12px; color: #94a3b8; margin: 6px 0;">Share this code or invite link with up to 4 friends:</p>
+          <p style="font-size: 12px; color: #94a3b8; margin: 6px 0;">Share this code or invite link with up to 9 friends:</p>
           <div style="display: flex; gap: 8px; justify-content: center; margin-top: 8px; flex-wrap: wrap;">
             <button class="action-btn" id="btn-copy-code" style="background: #374151; color: #fff; font-size: 13px; padding: 6px 14px;">📋 Copy Code</button>
             <button class="action-btn" id="btn-copy-lobby-link" style="background: #0284c7; color: #fff; font-size: 13px; padding: 6px 14px;">🔗 Copy Invite Link</button>
@@ -123,7 +123,7 @@
         </div>
 
         <div class="form-group" style="margin-top: 14px;">
-          <label class="form-label">Players in Room (<span id="lobby-player-count">1</span>/5)</label>
+          <label class="form-label">Players in Room (<span id="lobby-player-count">1</span>/10)</label>
           <div class="lobby-player-list" id="lobby-connected-players">
             <!-- Populated dynamically -->
           </div>
@@ -196,6 +196,11 @@
             <option value="3">3 Players</option>
             <option value="4">4 Players</option>
             <option value="5">5 Players</option>
+            <option value="6">6 Players</option>
+            <option value="7">7 Players</option>
+            <option value="8">8 Players</option>
+            <option value="9">9 Players</option>
+            <option value="10">10 Players</option>
           </select>
         </div>
 

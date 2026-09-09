@@ -8,8 +8,15 @@ using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 
+public class ClientMeta {
+    public string RoomCode = "GLOBAL";
+    public string PlayerId = "";
+    public string PlayerName = "";
+}
+
 public class GameServer {
     private static ConcurrentDictionary<string, List<WebSocket>> rooms = new ConcurrentDictionary<string, List<WebSocket>>();
+    private static ConcurrentDictionary<WebSocket, ClientMeta> clientMetas = new ConcurrentDictionary<WebSocket, ClientMeta>();
     private static string rootDir;
 
     public static void Main(string[] args) {
@@ -19,7 +26,7 @@ public class GameServer {
         rootDir = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".."));
         Console.WriteLine("=================================================");
         Console.WriteLine("   Words with Friends / Scrabble Game Server");
-        Console.WriteLine("   Supporting 1 to 5 Players in Real-Time");
+        Console.WriteLine("   Supporting 1 to 10 Players in Real-Time");
         Console.WriteLine("=================================================");
         Console.WriteLine("Web Root: " + rootDir);
         Console.WriteLine(string.Format("Local URL:   http://localhost:{0}/", port));
@@ -66,9 +73,27 @@ public class GameServer {
         }
     }
 
+    private static string ExtractJsonString(string json, string key) {
+        try {
+            string pattern = "\"" + key + "\"";
+            int keyIdx = json.IndexOf(pattern);
+            if (keyIdx == -1) return null;
+            int colonIdx = json.IndexOf(":", keyIdx);
+            if (colonIdx == -1) return null;
+            int quote1 = json.IndexOf("\"", colonIdx);
+            if (quote1 == -1) return null;
+            int quote2 = json.IndexOf("\"", quote1 + 1);
+            if (quote2 == -1) return null;
+            return json.Substring(quote1 + 1, quote2 - quote1 - 1);
+        } catch {
+            return null;
+        }
+    }
+
     private static async Task HandleWebSocketClient(WebSocket ws) {
         byte[] buffer = new byte[8192];
         string currentRoom = "GLOBAL";
+        ClientMeta meta = clientMetas.GetOrAdd(ws, (key) => new ClientMeta());
 
         try {
             while (ws.State == WebSocketState.Open) {
@@ -81,17 +106,21 @@ public class GameServer {
                 string msg = Encoding.UTF8.GetString(buffer, 0, result.Count);
                 // Extract room if specified
                 if (msg.Contains("\"roomCode\"")) {
-                    int keyIdx = msg.IndexOf("\"roomCode\"");
-                    int colonIdx = msg.IndexOf(":", keyIdx);
-                    if (colonIdx != -1) {
-                        int quote1 = msg.IndexOf("\"", colonIdx);
-                        if (quote1 != -1) {
-                            int quote2 = msg.IndexOf("\"", quote1 + 1);
-                            if (quote2 != -1) {
-                                currentRoom = msg.Substring(quote1 + 1, quote2 - quote1 - 1).ToUpper().Trim();
-                            }
-                        }
+                    string r = ExtractJsonString(msg, "roomCode");
+                    if (!string.IsNullOrEmpty(r)) {
+                        currentRoom = r.ToUpper().Trim();
+                        meta.RoomCode = currentRoom;
                     }
+                }
+
+                if (msg.Contains("\"senderId\"")) {
+                    string s = ExtractJsonString(msg, "senderId");
+                    if (!string.IsNullOrEmpty(s)) meta.PlayerId = s;
+                }
+
+                if (msg.Contains("\"playerName\"")) {
+                    string n = ExtractJsonString(msg, "playerName");
+                    if (!string.IsNullOrEmpty(n)) meta.PlayerName = n;
                 }
 
                 // Add to room tracking
@@ -121,9 +150,35 @@ public class GameServer {
             }
         } catch { }
         finally {
+            ClientMeta disconnectedMeta;
+            clientMetas.TryRemove(ws, out disconnectedMeta);
+
             List<WebSocket> list;
             if (rooms.TryGetValue(currentRoom, out list)) {
                 lock (list) { list.Remove(ws); }
+            }
+
+            // Immediately broadcast PLAYER_LEAVE to remaining peers in room
+            if (disconnectedMeta != null && !string.IsNullOrEmpty(disconnectedMeta.PlayerId)) {
+                string leaveMsg = string.Format(
+                    "{{\"roomCode\":\"{0}\",\"senderId\":\"SYSTEM\",\"type\":\"PLAYER_LEAVE\",\"payload\":{{\"playerId\":\"{1}\",\"playerName\":\"{2}\",\"reason\":\"disconnected\"}},\"timestamp\":{3}}}",
+                    currentRoom,
+                    disconnectedMeta.PlayerId,
+                    disconnectedMeta.PlayerName ?? "",
+                    DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                );
+                byte[] leaveBytes = Encoding.UTF8.GetBytes(leaveMsg);
+
+                List<WebSocket> peerList;
+                if (rooms.TryGetValue(currentRoom, out peerList)) {
+                    lock (peerList) {
+                        foreach (WebSocket peer in peerList) {
+                            if (peer.State == WebSocketState.Open) {
+                                peer.SendAsync(new ArraySegment<byte>(leaveBytes), WebSocketMessageType.Text, true, CancellationToken.None);
+                            }
+                        }
+                    }
+                }
             }
         }
     }

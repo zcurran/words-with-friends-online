@@ -101,14 +101,20 @@ document.addEventListener('DOMContentLoaded', () => {
   game.network.connectWebSocket();
 
   // 3. Render functions
+  const playerPalette = [
+    '#ff9800', '#2196f3', '#4caf50', '#e91e63', '#9c27b0',
+    '#00bcd4', '#ff5722', '#8bc34a', '#3f51b5', '#e040fb'
+  ];
+
   function renderScoreboard(gameState) {
     const playersListEl = elements.playersListEl;
     if (!playersListEl) return;
     playersListEl.innerHTML = '';
 
+    const activeCount = gameState.players.filter(p => !p.isOffline).length;
     const countIndicator = document.getElementById('player-count-indicator');
     if (countIndicator) {
-      countIndicator.innerText = gameState.players.length === 1 ? '1 Player' : (gameState.players.length + ' Players');
+      countIndicator.innerText = activeCount === 1 ? '1 Player' : (activeCount + ' Players');
     }
 
     const localPlayer = game.getLocalPlayer ? game.getLocalPlayer() : null;
@@ -117,8 +123,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const isCurrent = idx === gameState.currentTurnIndex;
       const isLocal = localPlayer ? (p.id === localPlayer.id) : ((idx === 0 && !p.isBot) || (game.network && game.network.playerName && p.name.toLowerCase() === game.network.playerName.toLowerCase()));
       const card = document.createElement('div');
-      card.className = 'player-card' + (isCurrent ? ' active-turn' : '');
+      card.className = 'player-card' + (isCurrent ? ' active-turn' : '') + (p.isOffline ? ' player-offline' : '');
       card.style.borderColor = p.color;
+      if (p.isOffline) card.style.opacity = '0.55';
 
       card.innerHTML = 
         '<div class="player-avatar" style="background-color: ' + p.color + '">' +
@@ -129,7 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
             '<span class="player-name">' + p.name + '</span>' +
             (isLocal ? '<button class="edit-name-inline-btn" title="Edit your name" data-player-id="' + p.id + '">✏️</button>' : '') +
             (p.isBot ? '<span class="bot-badge">BOT</span>' : '') +
-            (isCurrent ? '<span class="turn-badge">TURN</span>' : '') +
+            (p.isOffline ? '<span class="offline-badge">OFFLINE</span>' : '') +
+            (isCurrent && !p.isOffline ? '<span class="turn-badge">TURN</span>' : '') +
           '</div>' +
           '<div class="player-stats">' +
             '<span class="player-score"><strong>' + p.score + '</strong> pts</span>' +
@@ -152,8 +160,10 @@ document.addEventListener('DOMContentLoaded', () => {
     lobbyPlayers = gameState.players.map((p, i) => ({
       id: p.id,
       name: p.name,
+      color: p.color,
       isBot: p.isBot,
-      isHost: i === 0
+      isHost: i === 0,
+      isOffline: !!p.isOffline
     }));
     renderLobbyRoster();
   }
@@ -181,7 +191,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnRemoveBot = document.getElementById('btn-lobby-remove-bot');
     if (!container) return;
     container.innerHTML = '';
-    if (countEl) countEl.innerText = lobbyPlayers.length;
+    const activeLobbyCount = lobbyPlayers.filter(p => !p.isOffline).length;
+    if (countEl) countEl.innerText = activeLobbyCount;
 
     const botCount = lobbyPlayers.filter(p => p.isBot).length;
     if (botStatusLabel) {
@@ -197,17 +208,19 @@ document.addEventListener('DOMContentLoaded', () => {
     lobbyPlayers.forEach((p, i) => {
       const item = document.createElement('div');
       item.className = 'lobby-player-item';
+      if (p.isOffline) item.style.opacity = '0.55';
 
       const leftCol = document.createElement('div');
       leftCol.style.display = 'flex';
       leftCol.style.alignItems = 'center';
       leftCol.style.gap = '8px';
 
+      const avatarColor = p.color || playerPalette[i % playerPalette.length] || (p.isBot ? '#7c3aed' : (p.isHost ? '#ff9800' : '#2196f3'));
       const avatar = document.createElement('span');
       avatar.style.width = '24px';
       avatar.style.height = '24px';
       avatar.style.borderRadius = '50%';
-      avatar.style.background = p.isBot ? '#7c3aed' : (p.isHost ? '#ff9800' : '#2196f3');
+      avatar.style.background = avatarColor;
       avatar.style.color = '#fff';
       avatar.style.fontSize = '12px';
       avatar.style.fontWeight = '800';
@@ -220,7 +233,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const nameSpan = document.createElement('span');
       nameSpan.innerHTML = '<strong>' + p.name + '</strong>' + 
         (p.isHost ? ' <span style="color:#ff9800; font-size:11px; font-weight:700;">(Host)</span>' : '') +
-        (p.isBot ? ' <span class="bot-badge">BOT</span>' : '');
+        (p.isBot ? ' <span class="bot-badge">BOT</span>' : '') +
+        (p.isOffline ? ' <span class="offline-badge">OFFLINE</span>' : '');
       leftCol.appendChild(nameSpan);
 
       item.appendChild(leftCol);
@@ -247,6 +261,12 @@ document.addEventListener('DOMContentLoaded', () => {
           renderLobbyRoster();
         };
         rightCol.appendChild(removeBtn);
+      } else if (p.isOffline) {
+        const offlineBadge = document.createElement('span');
+        offlineBadge.style.color = '#94a3b8';
+        offlineBadge.style.fontSize = '11px';
+        offlineBadge.innerText = 'Offline';
+        rightCol.appendChild(offlineBadge);
       } else {
         const readyBadge = document.createElement('span');
         readyBadge.className = 'lobby-player-ready';
@@ -290,18 +310,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // Handle remote player joining lobby
+  // Handle remote player joining or leaving lobby
   game.onLobbyUpdate = (payload) => {
-    if (payload && payload.playerName) {
-      if (!lobbyPlayers.some(p => p.name === payload.playerName)) {
-        if (lobbyPlayers.length < 5) {
-          lobbyPlayers.push({
-            name: payload.playerName,
-            isBot: false,
-            isHost: !!payload.isHost
-          });
-          renderLobbyRoster();
-        }
+    if (!payload) return;
+    if (payload.type === 'LEAVE' && payload.playerId) {
+      lobbyPlayers = lobbyPlayers.filter(p => p.id !== payload.playerId);
+      renderLobbyRoster();
+      return;
+    }
+    if (payload.playerName) {
+      const exists = lobbyPlayers.some(p => (payload.playerId && p.id === payload.playerId) || p.name.toLowerCase() === payload.playerName.toLowerCase());
+      if (!exists && lobbyPlayers.length < 10) {
+        lobbyPlayers.push({
+          id: payload.playerId,
+          name: payload.playerName,
+          isBot: false,
+          isHost: !!payload.isHost,
+          isOffline: false
+        });
+        renderLobbyRoster();
       }
     }
   };
@@ -417,8 +444,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnAddBot = document.getElementById('btn-lobby-add-bot');
   if (btnAddBot) {
     btnAddBot.onclick = () => {
-      if (lobbyPlayers.length >= 5) {
-        alert('Maximum of 5 players allowed.');
+      if (lobbyPlayers.length >= 10) {
+        alert('Maximum of 10 players allowed.');
         return;
       }
       const botNum = lobbyPlayers.filter(p => p.isBot).length + 1;

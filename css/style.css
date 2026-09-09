@@ -170,11 +170,14 @@ body {
   justify-content: space-between;
 }
 
-/* 1-5 Player Scoreboard Cards */
+/* 1-10 Player Scoreboard Cards */
 .players-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .player-card {
@@ -241,6 +244,15 @@ body {
   font-weight: 800;
   letter-spacing: 0.5px;
   animation: pulse 1s infinite alternate;
+}
+
+.offline-badge {
+  font-size: 10px;
+  background: #64748b;
+  color: #f1f5f9;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 700;
 }
 
 .player-stats {

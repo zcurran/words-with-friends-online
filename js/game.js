@@ -1,4 +1,4 @@
-// Core Scrabble / Words with Friends Game State & Turn Engine (1-5 Players)
+// Core Scrabble / Words with Friends Game State & Turn Engine (1-10 Players)
 class ScrabbleGame {
   constructor() {
     this.config = GAME_CONFIG;
@@ -33,6 +33,10 @@ class ScrabbleGame {
         this.applyRemoteSwap(payload);
       } else if (type === 'ROOM_JOIN') {
         this.handleRemotePlayerJoin(payload);
+      } else if (type === 'PLAYER_LEAVE') {
+        this.handlePlayerLeave(payload);
+      } else if (type === 'HEARTBEAT') {
+        this.handleHeartbeat(payload);
       } else if (type === 'REQUEST_SYNC') {
         if (this.network && (this.network.isHost || (this.players[0] && this.players[0].id === this.network.playerId))) {
           this.network.sendAction('STATE_SYNC', this.serializeState());
@@ -61,7 +65,7 @@ class ScrabbleGame {
   // Add a new player dynamically when they join the room
   addPlayer(cfg) {
     if (!cfg) return null;
-    if (this.players.length >= 5) return null;
+    if (this.players.length >= 10) return null;
 
     let cleanName = (cfg.name || '').trim();
     if (!cleanName) cleanName = 'Player ' + (this.players.length + 1);
@@ -71,6 +75,8 @@ class ScrabbleGame {
       const existingById = this.players.find(p => p.id === cfg.id);
       if (existingById) {
         existingById.name = cleanName;
+        existingById.isOffline = false;
+        existingById.lastSeen = Date.now();
         this.notifyUpdate();
         return existingById;
       }
@@ -86,7 +92,10 @@ class ScrabbleGame {
       cleanName = cleanName + ' ' + counter;
     }
 
-    const playerColors = ['#ff9800', '#2196f3', '#4caf50', '#e91e63', '#9c27b0'];
+    const playerColors = [
+      '#ff9800', '#2196f3', '#4caf50', '#e91e63', '#9c27b0',
+      '#00bcd4', '#ff5722', '#8bc34a', '#3f51b5', '#e040fb'
+    ];
     const idx = this.players.length;
     const rack = (cfg.rack && cfg.rack.length > 0) ? cfg.rack : this.drawTiles(this.config.RACK_SIZE);
     const newPlayer = {
@@ -97,7 +106,9 @@ class ScrabbleGame {
       rack: rack,
       isBot: !!cfg.isBot,
       botLevel: cfg.botLevel || 'medium',
-      passedLastTurn: false
+      passedLastTurn: false,
+      isOffline: false,
+      lastSeen: Date.now()
     };
 
     this.players.push(newPlayer);
@@ -130,9 +141,75 @@ class ScrabbleGame {
       this.onLobbyUpdate(payload);
     }
 
-    // Broadcast current game state back so new player gets the full roster and board
-    if (this.network) {
+    // Only host/primary broadcasts current game state back so new player gets the full roster and board
+    if (this.network && (this.network.isHost || (this.players[0] && this.players[0].id === this.network.playerId))) {
       this.network.sendAction('STATE_SYNC', this.serializeState());
+    }
+  }
+
+  // Handle player leaving or disconnecting
+  handlePlayerLeave(payload) {
+    if (!payload || !payload.playerId) return;
+    const pIndex = this.players.findIndex(p => p.id === payload.playerId);
+    if (pIndex === -1) return;
+
+    const leavingPlayer = this.players[pIndex];
+    const leavingName = leavingPlayer.name.replace(' (Offline)', '').trim();
+
+    // If game hasn't started making real moves yet, completely remove player from roster
+    const isGameInProgress = this.moveHistory.some(m => m.action === 'PLAY');
+
+    if (!isGameInProgress) {
+      this.players.splice(pIndex, 1);
+      if (this.currentTurnIndex >= this.players.length) {
+        this.currentTurnIndex = 0;
+      }
+    } else {
+      // Mark player offline and auto-advance if it's their turn
+      leavingPlayer.isOffline = true;
+      if (!leavingPlayer.name.includes('(Offline)')) {
+        leavingPlayer.name = leavingPlayer.name + ' (Offline)';
+      }
+      if (this.currentTurnIndex === pIndex) {
+        this.advanceTurn();
+      }
+    }
+
+    this.moveHistory.unshift({
+      playerName: leavingName,
+      playerColor: leavingPlayer.color || '#94a3b8',
+      action: 'LEAVE',
+      description: 'left the room.',
+      score: 0,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    });
+
+    if (this.onLobbyUpdate) {
+      this.onLobbyUpdate({ type: 'LEAVE', playerId: payload.playerId });
+    }
+
+    this.notifyUpdate();
+
+    if (this.network && (this.network.isHost || (this.players[0] && this.players[0].id === this.network.playerId))) {
+      this.network.sendAction('STATE_SYNC', this.serializeState());
+    }
+  }
+
+  handleHeartbeat(payload) {
+    if (!payload || !payload.playerId) return;
+    const player = this.players.find(p => p.id === payload.playerId);
+    if (player) {
+      player.lastSeen = Date.now();
+      if (player.isOffline) {
+        player.isOffline = false;
+        player.name = player.name.replace(' (Offline)', '').trim();
+        this.notifyUpdate();
+      }
+    } else if (this.network && (this.network.isHost || (this.players[0] && this.players[0].id === this.network.playerId))) {
+      if (payload.playerName && this.players.length < 10) {
+        this.addPlayer({ id: payload.playerId, name: payload.playerName, isBot: false });
+        this.network.sendAction('STATE_SYNC', this.serializeState());
+      }
     }
   }
 
@@ -167,19 +244,24 @@ class ScrabbleGame {
 
     this.buildTileBag();
 
-    const playerColors = ['#ff9800', '#2196f3', '#4caf50', '#e91e63', '#9c27b0'];
-    this.players = playerConfigs.slice(0, 5).map((cfg, idx) => {
+    const playerColors = [
+      '#ff9800', '#2196f3', '#4caf50', '#e91e63', '#9c27b0',
+      '#00bcd4', '#ff5722', '#8bc34a', '#3f51b5', '#e040fb'
+    ];
+    this.players = playerConfigs.slice(0, 10).map((cfg, idx) => {
       const rack = this.drawTiles(this.config.RACK_SIZE);
       const cleanName = (cfg.name || ('Player ' + (idx + 1))).replace(' (Host)', '').replace(' (You)', '').trim();
       return {
         id: cfg.id || (idx === 0 && this.network ? this.network.playerId : ('p_' + (idx + 1))),
         name: cleanName || ('Player ' + (idx + 1)),
         color: playerColors[idx % playerColors.length],
-        score: 0,
+        score: cfg.score || 0,
         rack: rack,
         isBot: !!cfg.isBot,
         botLevel: cfg.botLevel || 'medium',
-        passedLastTurn: false
+        passedLastTurn: false,
+        isOffline: false,
+        lastSeen: Date.now()
       };
     });
 
@@ -381,7 +463,16 @@ class ScrabbleGame {
   }
 
   advanceTurn() {
+    if (this.players.length === 0) return;
     this.currentTurnIndex = (this.currentTurnIndex + 1) % this.players.length;
+
+    const hasOnline = this.players.some(p => !p.isOffline);
+    let attempts = 0;
+    while (hasOnline && this.getCurrentPlayer() && this.getCurrentPlayer().isOffline && attempts < this.players.length) {
+      this.currentTurnIndex = (this.currentTurnIndex + 1) % this.players.length;
+      attempts++;
+    }
+
     AUDIO.playTurnBell();
     this.startTurnTimer();
     this.notifyUpdate();

@@ -20,12 +20,26 @@ class NetworkManager {
     }
 
     this.playerName = 'Player ' + Math.floor(1000 + Math.random() * 9000);
+    this.heartbeatInterval = null;
 
     // Listen to BroadcastChannel for instant multi-tab sync in same browser
     if (typeof BroadcastChannel !== 'undefined') {
       this.broadcast = new BroadcastChannel('scrabble_wwf_channel');
       this.broadcast.onmessage = (e) => this.handleMessage(e.data);
     }
+
+    // Immediately notify peers when tab closes or navigates away
+    const handleUnload = () => {
+      if (this.roomCode && this.playerId) {
+        this.sendAction('PLAYER_LEAVE', {
+          roomCode: this.roomCode,
+          playerId: this.playerId,
+          playerName: this.playerName
+        });
+      }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    window.addEventListener('pagehide', handleUnload);
   }
 
   // Connect to game WebSocket server
@@ -53,6 +67,19 @@ class NetworkManager {
               playerId: this.playerId
             });
           }
+
+          // Start 15-second heartbeat
+          if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
+          this.heartbeatInterval = setInterval(() => {
+            if (this.roomCode && this.connected) {
+              this.sendAction('HEARTBEAT', {
+                roomCode: this.roomCode,
+                playerId: this.playerId,
+                playerName: this.playerName
+              });
+            }
+          }, 15000);
+
           resolve(true);
         };
 
@@ -81,7 +108,15 @@ class NetworkManager {
   }
 
   setRoomCode(code, isHost = false) {
-    this.roomCode = (code || '').toUpperCase().trim();
+    const newCode = (code || '').toUpperCase().trim();
+    if (this.roomCode && this.roomCode !== newCode) {
+      this.sendAction('PLAYER_LEAVE', {
+        roomCode: this.roomCode,
+        playerId: this.playerId,
+        playerName: this.playerName
+      });
+    }
+    this.roomCode = newCode;
     this.isHost = isHost;
     const joinPayload = {
       roomCode: this.roomCode,
