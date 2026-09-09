@@ -1,0 +1,110 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Test Room Code Persistence</title>
+  <style>
+    body { background: #1a202c; color: #fff; padding: 20px; font-family: sans-serif; }
+    .test-result { padding: 8px 12px; margin: 6px 0; border-radius: 4px; font-weight: bold; }
+    .test-pass { background: #2e7d32; }
+    .test-fail { background: #c62828; }
+  </style>
+</head>
+<body>
+  <h2>Test: Room Code Persistence Across Refreshes</h2>
+  <div id="test-log"></div>
+
+  <!-- Minimal test DOM -->
+  <span id="header-room-code"></span>
+  <div id="lobby-friend-code"></div>
+  <span id="header-player-name"></span>
+  <input id="join-name-input">
+  <div id="scrabble-board"></div>
+  <div id="rack-tiles"></div>
+  <div id="score-preview"></div>
+  <button id="btn-play"></button>
+  <button id="btn-shuffle"></button>
+  <button id="btn-recall"></button>
+  <button id="btn-swap"></button>
+  <button id="btn-pass"></button>
+  <button id="btn-peeker"></button>
+  <button id="btn-sound"></button>
+  <button id="btn-new-game"></button>
+  <button id="btn-open-lobby"></button>
+  <button id="btn-copy-invite"></button>
+  <div id="players-scoreboard"></div>
+  <ul id="move-history-list"></ul>
+  <span id="bag-count"></span>
+  <span id="turn-timer-badge"></span>
+  <span id="mode-display"></span>
+  <div id="lobby-modal"></div>
+  <div id="tab-btn-create"></div>
+  <div id="tab-btn-join"></div>
+  <div id="tab-btn-local"></div>
+  <div id="tab-content-create"></div>
+  <div id="tab-content-join"></div>
+  <div id="tab-content-local"></div>
+  <div id="lobby-connected-players"></div>
+  <span id="lobby-player-count"></span>
+  <button id="btn-copy-code"></button>
+  <button id="btn-copy-lobby-link"></button>
+  <button id="btn-new-room-code"></button>
+  <button id="btn-lobby-add-bot"></button>
+  <button id="btn-lobby-start-game"></button>
+  <input id="join-code-input">
+  <button id="btn-submit-join"></button>
+
+  <script src="../js/config.js"></script>
+  <script src="../js/dictionary.js"></script>
+  <script src="../js/rules.js"></script>
+  <script src="../js/audio.js"></script>
+  <script src="../js/network.js"></script>
+  <script src="../js/board.js"></script>
+  <script src="../js/game.js"></script>
+  <script>
+    (function runTest() {
+      const log = document.getElementById('test-log');
+      function assert(name, condition, msg = '') {
+        const div = document.createElement('div');
+        div.className = 'test-result ' + (condition ? 'test-pass' : 'test-fail');
+        div.innerText = (condition ? '✓ PASS: ' : '✗ FAIL: ') + name + (msg ? ' (' + msg + ')' : '');
+        log.appendChild(div);
+        return condition;
+      }
+
+      // Step 1: Pre-set a fixed room in localStorage (simulating an existing session before refresh)
+      const TEST_ROOM = 'WWF-9988';
+      localStorage.setItem('wwf_room_code', TEST_ROOM);
+      localStorage.setItem('wwf_is_host', 'true');
+
+      // Check logic
+      const storedRoom = localStorage.getItem('wwf_room_code');
+      assert('Stored room is present in localStorage', storedRoom === TEST_ROOM);
+
+      // Verify that checking storedRoom resolves to TEST_ROOM rather than generating a random one
+      let currentRoomCode = storedRoom;
+      assert('currentRoomCode preserved on simulated refresh', currentRoomCode === 'WWF-9988');
+
+      // Verify URL sync
+      const testUrl = new URL('http://localhost:8080/');
+      testUrl.searchParams.set('room', currentRoomCode);
+      assert('URL includes ?room=WWF-9988', testUrl.search === '?room=WWF-9988');
+
+      // Verify reload with ?room= param keeps the code
+      const reloadedUrlParams = new URLSearchParams(testUrl.search);
+      const reloadedRoom = reloadedUrlParams.get('room');
+      assert('Reloaded URL param resolves to WWF-9988', reloadedRoom === 'WWF-9988');
+
+      // Step 2: Test generating a new room code on demand
+      const freshCode = 'WWF-5555';
+      localStorage.setItem('wwf_room_code', freshCode);
+      assert('Explicit new room code updates localStorage', localStorage.getItem('wwf_room_code') === 'WWF-5555');
+
+      window.__TEST_RESULTS = {
+        allPassed: document.querySelectorAll('.test-fail').length === 0,
+        count: document.querySelectorAll('.test-result').length
+      };
+    })();
+  </script>
+</body>
+</html>

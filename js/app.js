@@ -27,12 +27,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const boardCtrl = new BoardController(game, elements);
 
-  // 2. Room & Player Name State
+  // 2. Room & Player Name State (Persistent across refreshes)
   let localPlayerName = localStorage.getItem('wwf_player_name') || 'Player 1';
-  let currentRoomCode = 'WWF-' + Math.floor(1000 + Math.random() * 9000);
+
+  // Check URL params for ?room=CODE first
+  const urlParams = new URLSearchParams(window.location.search);
+  const roomParam = urlParams.get('room');
+
+  // Check stored room code from localStorage
+  const storedRoom = localStorage.getItem('wwf_room_code');
+  const storedIsHost = localStorage.getItem('wwf_is_host');
+
+  let currentRoomCode = '';
   let isHost = true;
+
+  if (roomParam) {
+    // User arrived via room invite link or persistent URL
+    currentRoomCode = roomParam.toUpperCase().trim();
+    isHost = (storedRoom === currentRoomCode) ? (storedIsHost !== 'false') : false;
+  } else if (storedRoom) {
+    // User refreshed page without query param - reuse existing room code!
+    currentRoomCode = storedRoom.toUpperCase().trim();
+    isHost = (storedIsHost !== 'false');
+  } else {
+    // Fresh new session - generate initial friend code
+    currentRoomCode = 'WWF-' + Math.floor(1000 + Math.random() * 9000);
+    isHost = true;
+  }
+
   let lobbyPlayers = [
-    { name: localPlayerName + ' (You)', isBot: false, isHost: true }
+    { name: localPlayerName + ' (You)', isBot: false, isHost: isHost }
   ];
 
   function updateHeaderName(name) {
@@ -43,22 +67,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   updateHeaderName(localPlayerName);
 
-  // Check URL params for ?room=CODE
-  const urlParams = new URLSearchParams(window.location.search);
-  const roomParam = urlParams.get('room');
-  if (roomParam) {
-    currentRoomCode = roomParam.toUpperCase().trim();
-    isHost = false;
-  }
-
-  // Update header and lobby UI with room code
-  function updateRoomUI(code) {
+  // Update header and lobby UI with room code and synchronize with URL and localStorage
+  function updateRoomUI(code, asHost = isHost) {
     currentRoomCode = code;
+    isHost = asHost;
+    localStorage.setItem('wwf_room_code', code);
+    localStorage.setItem('wwf_is_host', isHost ? 'true' : 'false');
+
     if (elements.headerRoomCode) elements.headerRoomCode.innerText = code;
     const lobbyCodeEl = document.getElementById('lobby-friend-code');
     if (lobbyCodeEl) lobbyCodeEl.innerText = code;
+
+    // Keep URL parameter ?room=CODE updated in address bar so browser refresh retains room
+    try {
+      const currentUrl = new URL(window.location.href);
+      if (currentUrl.searchParams.get('room') !== code) {
+        currentUrl.searchParams.set('room', code);
+        window.history.replaceState({}, '', currentUrl.pathname + currentUrl.search);
+      }
+    } catch (err) {}
   }
-  updateRoomUI(currentRoomCode);
+  updateRoomUI(currentRoomCode, isHost);
 
   // Connect network
   game.network.playerName = localPlayerName;
@@ -243,6 +272,16 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  const btnNewRoomCode = document.getElementById('btn-new-room-code');
+  if (btnNewRoomCode) {
+    btnNewRoomCode.onclick = () => {
+      const newCode = 'WWF-' + Math.floor(1000 + Math.random() * 9000);
+      updateRoomUI(newCode, true);
+      game.network.setRoomCode(newCode, true);
+      alert('New Friend Code generated: ' + newCode + '\nThis room code will be saved and retained across refreshes.');
+    };
+  }
+
   // 6. Lobby Modal Management
   function openLobbyModal() {
     renderLobbyRoster();
@@ -343,7 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      updateRoomUI(code);
+      updateRoomUI(code, false);
       game.network.playerName = name;
       game.network.setRoomCode(code, false);
 
