@@ -1,0 +1,189 @@
+﻿/* Words with Friends 15x15 Board & Tile Styling */
+
+:root {
+  --board-bg: #e8e2d5;
+  --grid-line: #cfc7b6;
+  --tw-color: #f4511e;
+  --dw-color: #e91e63;
+  --tl-color: #2e7d32;
+  --dl-color: #0288d1;
+  --star-color: #8e24aa;
+  --tile-bg-top: #fff8e1;
+  --tile-bg-bot: #ffecb3;
+  --tile-border: #d7ccc8;
+  --tile-text: #2c2523;
+  --tile-shadow: rgba(0, 0, 0, 0.25);
+  --cell-size: min(36px, max(22px, calc((100vh - 270px) / 15)));
+}
+
+@media (max-width: 768px) {
+  :root {
+    --cell-size: min(24px, calc((100vw - 32px) / 15));
+  }
+}
+
+.board-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2px;
+}
+
+#scrabble-board {
+  display: grid;
+  grid-template-columns: repeat(15, var(--cell-size));
+  grid-template-rows: repeat(15, var(--cell-size));
+  gap: 2px;
+  background-color: #3e2723;
+  padding: 5px;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 2px 4px rgba(255, 255, 255, 0.1);
+  user-select: none;
+}
+
+.board-cell {
+  background-color: var(--board-bg);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  width: var(--cell-size);
+  height: var(--cell-size);
+  cursor: pointer;
+  transition: filter 0.1s ease;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.board-cell:hover {
+  filter: brightness(1.06);
+}
+
+.board-cell.drag-over {
+  background-color: #fff9c4 !important;
+  outline: 2px solid #ff9800;
+}
+
+/* Multiplier Badges */
+.cell-tw {
+  background: linear-gradient(135deg, #ff7043, var(--tw-color)) !important;
+  color: #fff;
+}
+
+.cell-dw {
+  background: linear-gradient(135deg, #f06292, var(--dw-color)) !important;
+  color: #fff;
+}
+
+.cell-tl {
+  background: linear-gradient(135deg, #66bb6a, var(--tl-color)) !important;
+  color: #fff;
+}
+
+.cell-dl {
+  background: linear-gradient(135deg, #4fc3f7, var(--dl-color)) !important;
+  color: #fff;
+}
+
+.cell-star {
+  background: linear-gradient(135deg, #ab47bc, var(--star-color)) !important;
+  color: #ffd54f;
+}
+
+.mult-label {
+  font-size: calc(var(--cell-size) * 0.34);
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.mult-sub {
+  font-size: calc(var(--cell-size) * 0.16);
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  opacity: 0.9;
+  text-transform: uppercase;
+  display: block;
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .mult-sub {
+    display: none;
+  }
+}
+
+.star-icon {
+  font-size: calc(var(--cell-size) * 0.55);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  pointer-events: none;
+  line-height: 1;
+}
+
+/* Wood Tiles */
+.wood-tile {
+  width: 94%;
+  height: 94%;
+  background: linear-gradient(180deg, var(--tile-bg-top) 0%, var(--tile-bg-bot) 100%);
+  border: 1px solid var(--tile-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 5px var(--tile-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  cursor: grab;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.board-cell .wood-tile {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: calc(100% - 2px);
+  height: calc(100% - 2px);
+  z-index: 10;
+  margin: 0;
+}
+
+.wood-tile:active {
+  cursor: grabbing;
+}
+
+.wood-tile .tile-letter {
+  font-size: calc(var(--cell-size) * 0.52);
+  font-weight: 800;
+  color: var(--tile-text);
+  font-family: 'Segoe UI', -apple-system, sans-serif;
+  margin-top: -1px;
+  line-height: 1;
+}
+
+.wood-tile .tile-points {
+  position: absolute;
+  bottom: 1px;
+  right: 2px;
+  font-size: calc(var(--cell-size) * 0.24);
+  font-weight: 800;
+  color: #6d4c41;
+  line-height: 1;
+}
+
+.staged-tile {
+  outline: 2px solid #2e7d32;
+  background: linear-gradient(180deg, #ffffff 0%, #fff9c4 100%) !important;
+}
+
+.blank-tile .tile-letter {
+  color: #1976d2;
+}
+
+.wood-tile.selected {
+  outline: 3px solid #ff9800;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(255, 152, 0, 0.5);
+}

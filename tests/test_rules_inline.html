@@ -1,0 +1,731 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scrabble / WWF Rules Engine Unit Tests</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; padding: 25px; background: #1a1a24; color: #e0e0e0; }
+    h1 { color: #ff9800; }
+    .test-box { background: #252836; border-radius: 8px; padding: 15px 20px; margin-bottom: 12px; border-left: 6px solid #555; }
+    .pass { border-left-color: #4caf50; }
+    .fail { border-left-color: #f44336; }
+    .badge { font-weight: bold; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-right: 10px; }
+    .badge-pass { background: #4caf50; color: #fff; }
+    .badge-fail { background: #f44336; color: #fff; }
+    pre { background: #181924; padding: 8px 12px; border-radius: 4px; overflow-x: auto; color: #90caf9; }
+  </style>
+</head>
+<body>
+  <h1>Scrabble / Words with Friends - Rules Engine Verification</h1>
+  <div id="results">Running tests...</div>
+
+  <script>// Game Configuration: Board Layouts, Tile Bags, Point Multipliers
+const GAME_CONFIG = {
+  // Words with Friends authentic 15x15 board layout
+  WWF_BOARD: [
+    ['.',  '.',  '.',  'TW', '.',  '.',  'TL', '.',  'TL', '.',  '.',  'TW', '.',  '.',  '.'],
+    ['.',  '.',  'DL', '.',  '.',  'DW', '.',  '.',  '.',  'DW', '.',  '.',  'DL', '.',  '.'],
+    ['.',  'DL', '.',  '.',  'DL', '.',  '.',  '.',  '.',  '.',  'DL', '.',  '.',  'DL', '.'],
+    ['TW', '.',  '.',  'TL', '.',  '.',  '.',  'DW', '.',  '.',  '.',  'TL', '.',  '.',  'TW'],
+    ['.',  '.',  'DL', '.',  '.',  '.',  'DL', '.',  'DL', '.',  '.',  '.',  'DL', '.',  '.'],
+    ['.',  'DW', '.',  '.',  '.',  'TL', '.',  '.',  '.',  'TL', '.',  '.',  '.',  'DW', '.'],
+    ['TL', '.',  '.',  '.',  'DL', '.',  '.',  '.',  '.',  '.',  'DL', '.',  '.',  '.',  'TL'],
+    ['.',  '.',  '.',  'DW', '.',  '.',  '.',  'STAR', '.', '.', '.',  'DW', '.',  '.',  '.'],
+    ['TL', '.',  '.',  '.',  'DL', '.',  '.',  '.',  '.',  '.',  'DL', '.',  '.',  '.',  'TL'],
+    ['.',  'DW', '.',  '.',  '.',  'TL', '.',  '.',  '.',  'TL', '.',  '.',  '.',  'DW', '.'],
+    ['.',  '.',  'DL', '.',  '.',  '.',  'DL', '.',  'DL', '.',  '.',  '.',  'DL', '.',  '.'],
+    ['TW', '.',  '.',  'TL', '.',  '.',  '.',  'DW', '.',  '.',  '.',  'TL', '.',  '.',  'TW'],
+    ['.',  'DL', '.',  '.',  'DL', '.',  '.',  '.',  '.',  '.',  'DL', '.',  '.',  'DL', '.'],
+    ['.',  '.',  'DL', '.',  '.',  'DW', '.',  '.',  '.',  'DW', '.',  '.',  'DL', '.',  '.'],
+    ['.',  '.',  '.',  'TW', '.',  '.',  'TL', '.',  'TL', '.',  '.',  'TW', '.',  '.',  '.']
+  ],
+
+  // Classic Scrabble 15x15 board layout
+  SCRABBLE_BOARD: [
+    ['TW', '.',  '.',  'DL', '.',  '.',  '.',  'TW', '.',  '.',  '.',  'DL', '.',  '.',  'TW'],
+    ['.',  'DW', '.',  '.',  '.',  'TL', '.',  '.',  '.',  'TL', '.',  '.',  '.',  'DW', '.'],
+    ['.',  '.',  'DW', '.',  '.',  '.',  'DL', '.',  'DL', '.',  '.',  '.',  'DW', '.',  '.'],
+    ['DL', '.',  '.',  'DW', '.',  '.',  '.',  'DL', '.',  '.',  '.',  'DW', '.',  '.',  'DL'],
+    ['.',  '.',  '.',  '.',  'DW', '.',  '.',  '.',  '.',  '.',  'DW', '.',  '.',  '.',  '.'],
+    ['.',  'TL', '.',  '.',  '.',  'TL', '.',  '.',  '.',  'TL', '.',  '.',  '.',  'TL', '.'],
+    ['.',  '.',  'DL', '.',  '.',  '.',  'DL', '.',  'DL', '.',  '.',  '.',  'DL', '.',  '.'],
+    ['TW', '.',  '.',  'DL', '.',  '.',  '.',  'STAR', '.', '.', '.',  'DL', '.',  '.',  'TW'],
+    ['.',  '.',  'DL', '.',  '.',  '.',  'DL', '.',  'DL', '.',  '.',  '.',  'DL', '.',  '.'],
+    ['.',  'TL', '.',  '.',  '.',  'TL', '.',  '.',  '.',  'TL', '.',  '.',  '.',  'TL', '.'],
+    ['.',  '.',  '.',  '.',  'DW', '.',  '.',  '.',  '.',  '.',  'DW', '.',  '.',  '.',  '.'],
+    ['DL', '.',  '.',  'DW', '.',  '.',  '.',  'DL', '.',  '.',  '.',  'DW', '.',  '.',  'DL'],
+    ['.',  '.',  'DW', '.',  '.',  '.',  'DL', '.',  'DL', '.',  '.',  '.',  'DW', '.',  '.'],
+    ['.',  'DW', '.',  '.',  '.',  'TL', '.',  '.',  '.',  'TL', '.',  '.',  '.',  'DW', '.'],
+    ['TW', '.',  '.',  'DL', '.',  '.',  '.',  'TW', '.',  '.',  '.',  'DL', '.',  '.',  'TW']
+  ],
+
+  // Words with Friends tile specifications (104 total)
+  WWF_TILES: {
+    'A': { count: 9,  points: 1 },
+    'B': { count: 2,  points: 4 },
+    'C': { count: 2,  points: 4 },
+    'D': { count: 5,  points: 2 },
+    'E': { count: 13, points: 1 },
+    'F': { count: 2,  points: 4 },
+    'G': { count: 3,  points: 3 },
+    'H': { count: 4,  points: 3 },
+    'I': { count: 8,  points: 1 },
+    'J': { count: 1,  points: 10 },
+    'K': { count: 1,  points: 5 },
+    'L': { count: 4,  points: 2 },
+    'M': { count: 2,  points: 4 },
+    'N': { count: 5,  points: 2 },
+    'O': { count: 8,  points: 1 },
+    'P': { count: 2,  points: 4 },
+    'Q': { count: 1,  points: 10 },
+    'R': { count: 6,  points: 1 },
+    'S': { count: 5,  points: 1 },
+    'T': { count: 7,  points: 1 },
+    'U': { count: 4,  points: 2 },
+    'V': { count: 2,  points: 5 },
+    'W': { count: 2,  points: 4 },
+    'X': { count: 1,  points: 8 },
+    'Y': { count: 2,  points: 3 },
+    'Z': { count: 1,  points: 10 },
+    '_': { count: 2,  points: 0 }  // Blank wildcards
+  },
+
+  // Classic Scrabble tile specifications (100 total)
+  SCRABBLE_TILES: {
+    'A': { count: 9,  points: 1 },
+    'B': { count: 2,  points: 3 },
+    'C': { count: 2,  points: 3 },
+    'D': { count: 4,  points: 2 },
+    'E': { count: 12, points: 1 },
+    'F': { count: 2,  points: 4 },
+    'G': { count: 3,  points: 2 },
+    'H': { count: 2,  points: 4 },
+    'I': { count: 9,  points: 1 },
+    'J': { count: 1,  points: 8 },
+    'K': { count: 1,  points: 5 },
+    'L': { count: 4,  points: 1 },
+    'M': { count: 2,  points: 3 },
+    'N': { count: 6,  points: 1 },
+    'O': { count: 8,  points: 1 },
+    'P': { count: 2,  points: 3 },
+    'Q': { count: 1,  points: 10 },
+    'R': { count: 6,  points: 1 },
+    'S': { count: 4,  points: 1 },
+    'T': { count: 6,  points: 1 },
+    'U': { count: 4,  points: 1 },
+    'V': { count: 2,  points: 4 },
+    'W': { count: 2,  points: 4 },
+    'X': { count: 1,  points: 8 },
+    'Y': { count: 2,  points: 4 },
+    'Z': { count: 1,  points: 10 },
+    '_': { count: 2,  points: 0 }
+  },
+
+  BINGO_BONUS_WWF: 35,       // WWF awards +35 for using all 7 tiles
+  BINGO_BONUS_SCRABBLE: 50,  // Scrabble awards +50
+  RACK_SIZE: 7,
+  MAX_PLAYERS: 5,
+  MIN_PLAYERS: 2
+};
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = GAME_CONFIG;
+}
+</script>
+  <script>// Words with Friends / Scrabble Dictionary Engine
+class GameDictionary {
+  constructor() {
+    this.words = new Set();
+    this.trie = {};
+    this.loaded = false;
+    this.loadingPromise = null;
+  }
+
+  // Insert a word into the set and prefix trie
+  insert(word) {
+    const w = word.trim().toUpperCase();
+    if (w.length < 2) return;
+    this.words.add(w);
+
+    let node = this.trie;
+    for (let i = 0; i < w.length; i++) {
+      const ch = w[i];
+      if (!node[ch]) node[ch] = {};
+      node = node[ch];
+    }
+    node['$'] = true; // End-of-word marker
+  }
+
+  // Check if an exact word is valid
+  isValid(word) {
+    if (!word) return false;
+    const w = word.trim().toUpperCase();
+    return this.words.has(w);
+  }
+
+  // Check if a prefix exists in the trie (used by AI solver)
+  hasPrefix(prefix) {
+    if (!prefix) return true;
+    const p = prefix.trim().toUpperCase();
+    let node = this.trie;
+    for (let i = 0; i < p.length; i++) {
+      const ch = p[i];
+      if (!node[ch]) return false;
+      node = node[ch];
+    }
+    return true;
+  }
+
+  // Load from enable1.txt or embedded list
+  async init(url = 'data/enable1.txt') {
+    if (this.loaded) return true;
+    if (this.loadingPromise) return this.loadingPromise;
+
+    this.loadingPromise = (async () => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Fetch failed: ' + response.status);
+        const text = await response.text();
+        const lines = text.split(/\r?\n/);
+        for (let i = 0; i < lines.length; i++) {
+          const w = lines[i].trim();
+          if (w.length >= 2) {
+            this.insert(w);
+          }
+        }
+        this.loaded = true;
+        console.log([Dictionary] Successfully loaded  words from );
+        return true;
+      } catch (err) {
+        console.warn([Dictionary] Full dictionary fetch failed (), falling back to embedded vocabulary.);
+        this.loadEmbeddedWords();
+        this.loaded = true;
+        return true;
+      }
+    })();
+
+    return this.loadingPromise;
+  }
+
+  // Fallback high-frequency tournament word list for instant offline/file:// usage
+  loadEmbeddedWords() {
+    const commonWords = [
+      "AA","AB","AD","AE","AG","AH","AI","AL","AM","AN","AR","AS","AT","AW","AX","AY","BA","BE","BI","BO","BY",
+      "DA","DE","DO","ED","EF","EH","EL","EM","EN","ER","ES","ET","EW","EX","FA","FE","GI","GO","HA","HE","HI",
+      "HM","HO","ID","IF","IN","IS","IT","JO","KA","KI","LA","LI","LO","MA","ME","MI","MM","MO","MU","MY","NA",
+      "NE","NO","NU","OD","OE","OF","OH","OI","OK","OM","ON","OP","OR","OS","OW","OX","OY","PA","PE","PI","PO",
+      "QI","RE","SH","SI","SO","TA","TE","TI","TO","UH","UM","UN","UP","US","UT","WE","WO","XI","XU","YA","YE","YO","ZA",
+      "CAT","DOG","THE","AND","FOR","ARE","BUT","NOT","YOU","ALL","ANY","CAN","HAD","HER","WAS","ONE","OUR","OUT","DAY",
+      "GET","HAS","HIM","HIS","HOW","MAN","NEW","NOW","OLD","SEE","TWO","WAY","WHO","BOY","DID","ITS","LET","PUT","SAY",
+      "SHE","TOO","USE","WORD","PLAY","GAME","TILE","BOARD","FRIEND","SCORE","TRIPLE","DOUBLE","LETTER","BONUS","START",
+      "WINNER","POINTS","RACK","PLAYER","TURN","SOLARIS","SENA","ANT","BEE","CAR","DUCK","EAGLE","FOX","GOAT","HAWK",
+      "IBIS","JAY","KOALA","LION","MOOSE","NEWT","OWL","PIG","QUAIL","ROBIN","SWAN","TIGER","URCHIN","VIPER","WOLF",
+      "YAK","ZEBRA","ABOUT","ABOVE","ACTOR","ACUTE","ADMIT","ADOPT","ADULT","AFTER","AGAIN","AGENT","AGREE","AHEAD",
+      "ALARM","ALBUM","ALERT","ALIKE","ALIVE","ALLOW","ALONE","ALONG","ALTER","AMONG","ANGER","ANGLE","ANGRY","APART",
+      "APPLE","APPLY","ARENA","ARGUE","ARISE","ARRAY","ASIDE","ASSET","AUDIO","AUDIT","AVOID","AWAIT","AWAKE","AWARD",
+      "AWARE","BADLY","BAKER","BASES","BASIC","BASIS","BEACH","BEGAN","BEGIN","BEGUN","BEING","BELOW","BENCH","BILLY",
+      "BIRTH","BLACK","BLAME","BLIND","BLOCK","BLOOD","BOARD","BOOST","BOOTH","BOUND","BRAIN","BRAND","BREAD","BREAK",
+      "BREED","BRIEF","BRING","BROAD","BROKE","BROWN","BUILD","BUILT","BUYER","CABLE","CALIF","CARRY","CATCH","CAUSE",
+      "CHAIN","CHAIR","CHART","CHASE","CHEAP","CHECK","CHEST","CHIEF","CHILD","CHINA","CHOSE","CIVIL","CLAIM","CLASS",
+      "CLEAN","CLEAR","CLICK","CLOCK","CLOSE","COACH","COAST","COULD","COUNT","COURT","COVER","CRAFT","CRANE","CRAZY",
+      "CREAM","CRIME","CROSS","CROWD","CROWN","CURVE","CYCLE","DAILY","DANCE","DATED","DEALT","DEATH","DEBUT","DELAY",
+      "DEPTH","DOING","DOUBT","DOZEN","DRAFT","DRAMA","DRAWN","DREAM","DRESS","DRILL","DRINK","DRIVE","DROVE","DYING",
+      "EAGER","EARLY","EARTH","EIGHT","ELITE","EMPTY","ENEMY","ENJOY","ENTER","ENTRY","EQUAL","ERROR","EVENT","EVERY",
+      "EXACT","EXIST","EXTRA","FAITH","FALSE","FAULT","FIBER","FIELD","FIFTH","FIFTY","FIGHT","FINAL","FIRST","FIXED",
+      "FLASH","FLEET","FLOOR","FLUID","FOCUS","FORCE","FORTH","FORTY","FORUM","FOUND","FRAME","FRANK","FRAUD","FRESH",
+      "FRONT","FRUIT","FULLY","FUNNY","GIANT","GIVEN","GLASS","GLOBE","GOING","GRACE","GRADE","GRAND","GRANT","GRASS",
+      "GREAT","GREEN","GROSS","GROUP","GROWN","GUARD","GUESS","GUEST","GUIDE","HAPPY","HARRY","HEART","HEAVY","HENCE",
+      "HENRY","HORSE","HOTEL","HOUSE","HUMAN","IDEAL","IMAGE","INDEX","INNER","INPUT","ISSUE","JAPAN","JIMMY","JOINT",
+      "JONES","JUDGE","KNOWN","LABEL","LARGE","LASER","LATER","LAUGH","LAYER","LEARN","LEASE","LEAST","LEAVE","LEGAL",
+      "LEVEL","LEWIS","LIGHT","LIMIT","LINKS","LIVES","LOCAL","LOGIC","LOOSE","LOWER","LUCKY","LUNCH","LYING","MAGIC",
+      "MAJOR","MAKER","MARCH","MARIA","MATCH","MAYBE","MAYOR","MEANT","MEDIA","METAL","MIGHT","MINOR","MINUS","MIXED",
+      "MODEL","MONEY","MONTH","MORAL","MOTOR","MOUNT","MOUSE","MOUTH","MOVIE","MUSIC","NEEDS","NEVER","NIGHT","NOISE",
+      "NORTH","NOTED","NOVEL","NURSE","OCCUR","OCEAN","OFFER","OFTEN","ORDER","OTHER","OUGHT","PAINT","PANEL","PAPER",
+      "PARTY","PEACE","PETER","PHASE","PHONE","PHOTO","PIECE","PILOT","PITCH","PLACE","PLAIN","PLANE","PLANT","PLATE",
+      "POINT","POUND","POWER","PRESS","PRICE","PRIDE","PRIME","PRINT","PRIOR","PRIZE","PROOF","PROUD","PROVE","QUEEN",
+      "QUICK","QUIET","QUITE","RADIO","RAISE","RANGE","RAPID","RATIO","REACH","READY","REFER","RIGHT","RIVAL","RIVER",
+      "ROBIN","ROGER","ROMAN","ROUGH","ROUND","ROUTE","ROYAL","RURAL","SCALE","SCENE","SCOPE","SCORE","SENSE","SERVE",
+      "SEVEN","SHALL","SHAPE","SHARE","SHARP","SHEET","SHELF","SHELL","SHIFT","SHIRT","SHOCK","SHOOT","SHORT","SHOWN",
+      "SIGHT","SINCE","SIXTH","SIXTY","SIZED","SKILL","SLEEP","SLIDE","SMALL","SMART","SMILE","SMITH","SMOKE","SOLID",
+      "SOLVE","SORRY","SOUND","SOUTH","SPACE","SPARE","SPEAK","SPEED","SPEND","SPENT","SPLIT","SPOKE","SPORT","STAFF",
+      "STAGE","STAKE","STAND","START","STATE","STEAM","STEEL","STICK","STILL","STOCK","STONE","STOOD","STORE","STORM",
+      "STORY","STRIP","STUCK","STUDY","STUFF","STYLE","SUGAR","SUITE","SUPER","SWEET","TABLE","TAKEN","TASTE","TAXES",
+      "TEACH","TEETH","TERRY","TEXAS","THANK","THEFT","THEIR","THEME","THERE","THESE","THICK","THING","THINK","THIRD",
+      "THOSE","THREE","THREW","THROW","TIGHT","TIMES","TIRED","TITLE","TODAY","TOPIC","TOTAL","TOUCH","TOUGH","TOWER",
+      "TRACK","TRADE","TRAIN","TREAT","TREND","TRIAL","TRIED","TRIES","TRUCK","TRULY","TRUST","TRUTH","TWICE","UNDER",
+      "UNDUE","UNION","UNITY","UNTIL","UPPER","UPSET","URBAN","USAGE","USUAL","VALID","VALUE","VIDEO","VIRUS","VISIT",
+      "VITAL","VOICE","WASTE","WATCH","WATER","WHEEL","WHERE","WHICH","WHILE","WHITE","WHOLE","WHOSE","WOMAN","WOMEN",
+      "WORLD","WORRY","WORSE","WORST","WORTH","WOULD","WOUND","WRITE","WRONG","WROTE","YIELD","YOUNG","YOUTH","ZERO"
+    ];
+    for (const w of commonWords) {
+      this.insert(w);
+    }
+  }
+}
+
+// Global singleton instance
+const DICTIONARY = new GameDictionary();
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { GameDictionary, DICTIONARY };
+}
+</script>
+  <script>// Words with Friends / Scrabble Rules & Scoring Engine
+class RulesEngine {
+  constructor(config = GAME_CONFIG, dictionary = DICTIONARY) {
+    this.config = config;
+    this.dictionary = dictionary;
+  }
+
+  // Helper to get tile at (r, c) on board (combines existing board and newly placed tiles)
+  getTile(board, newTilesMap, r, c) {
+    if (r < 0 || r >= 15 || c < 0 || c >= 15) return null;
+    const key = ${r},;
+    if (newTilesMap.has(key)) return newTilesMap.get(key);
+    return board[r][c] || null;
+  }
+
+  // Validate a move and calculate score
+  validateMove(board, newTiles, mode = 'WWF') {
+    if (!newTiles || newTiles.length === 0) {
+      return { valid: false, error: 'No tiles placed on the board.' };
+    }
+
+    const boardLayout = mode === 'WWF' ? this.config.WWF_BOARD : this.config.SCRABBLE_BOARD;
+    const bingoBonus = mode === 'WWF' ? this.config.BINGO_BONUS_WWF : this.config.BINGO_BONUS_SCRABBLE;
+
+    // Check if board is currently empty (first move)
+    let isBoardEmpty = true;
+    for (let r = 0; r < 15; r++) {
+      for (let c = 0; c < 15; c++) {
+        if (board[r][c]) {
+          isBoardEmpty = false;
+          break;
+        }
+      }
+      if (!isBoardEmpty) break;
+    }
+
+    // Map new tiles by coordinate
+    const newTilesMap = new Map();
+    let coversCenter = false;
+
+    for (const tile of newTiles) {
+      const { r, c } = tile;
+      if (r < 0 || r >= 15 || c < 0 || c >= 15) {
+        return { valid: false, error: 'Tile placed outside board boundaries.' };
+      }
+      if (board[r][c]) {
+        return { valid: false, error: Square (, ) is already occupied. };
+      }
+      const key = ${r},;
+      if (newTilesMap.has(key)) {
+        return { valid: false, error: 'Duplicate tile placement on same square.' };
+      }
+      newTilesMap.set(key, { ...tile, isNew: true });
+
+      if (r === 7 && c === 7) {
+        coversCenter = true;
+      }
+    }
+
+    // First move must cover center (7, 7)
+    if (isBoardEmpty) {
+      if (!coversCenter) {
+        return { valid: false, error: 'The first word must cover the center star (★) square.' };
+      }
+      if (newTiles.length < 2) {
+        return { valid: false, error: 'First word must contain at least 2 letters.' };
+      }
+    }
+
+    // Check linearity: all new tiles must be in the same row OR same col
+    const firstTile = newTiles[0];
+    const sameRow = newTiles.every(t => t.r === firstTile.r);
+    const sameCol = newTiles.every(t => t.c === firstTile.c);
+
+    if (!sameRow && !sameCol) {
+      return { valid: false, error: 'All placed tiles must be in a single straight row or column.' };
+    }
+
+    // Determine primary orientation
+    let isHorizontal = sameRow;
+    if (newTiles.length === 1) {
+      // If single tile, check which orientation forms a longer word or connects to existing tiles
+      const r = firstTile.r, c = firstTile.c;
+      const hasHorizontalAdj = (c > 0 && board[r][c-1]) || (c < 14 && board[r][c+1]);
+      const hasVerticalAdj = (r > 0 && board[r-1][c]) || (r < 14 && board[r+1][c]);
+      if (hasHorizontalAdj && !hasVerticalAdj) isHorizontal = true;
+      else if (hasVerticalAdj && !hasHorizontalAdj) isHorizontal = false;
+      else isHorizontal = true; // default
+    }
+
+    // Check contiguity: between min and max coordinate, all squares must be filled
+    if (isHorizontal) {
+      const r = firstTile.r;
+      const cols = newTiles.map(t => t.c);
+      const minCol = Math.min(...cols);
+      const maxCol = Math.max(...cols);
+      for (let c = minCol; c <= maxCol; c++) {
+        if (!this.getTile(board, newTilesMap, r, c)) {
+          return { valid: false, error: 'Tiles placed in a row cannot have empty gaps between them.' };
+        }
+      }
+    } else {
+      const c = firstTile.c;
+      const rows = newTiles.map(t => t.r);
+      const minRow = Math.min(...rows);
+      const maxRow = Math.max(...rows);
+      for (let r = minRow; r <= maxRow; r++) {
+        if (!this.getTile(board, newTilesMap, r, c)) {
+          return { valid: false, error: 'Tiles placed in a column cannot have empty gaps between them.' };
+        }
+      }
+    }
+
+    // Check connectivity for subsequent moves (must touch at least one existing tile)
+    if (!isBoardEmpty) {
+      let connectsToExisting = false;
+      for (const tile of newTiles) {
+        const { r, c } = tile;
+        const neighbors = [
+          [r - 1, c], [r + 1, c],
+          [r, c - 1], [r, c + 1]
+        ];
+        for (const [nr, nc] of neighbors) {
+          if (nr >= 0 && nr < 15 && nc >= 0 && nc < 15) {
+            if (board[nr][nc] && !newTilesMap.has(${nr},)) {
+              connectsToExisting = true;
+              break;
+            }
+          }
+        }
+        if (connectsToExisting) break;
+      }
+
+      if (!connectsToExisting) {
+        return { valid: false, error: 'New tiles must connect directly to existing tiles on the board.' };
+      }
+    }
+
+    // Extract all words formed: Main word + Cross words
+    const wordsFormed = [];
+    const processedWordKeys = new Set();
+
+    // 1. Extract Main Word
+    let mainWordTiles = [];
+    if (isHorizontal) {
+      const r = firstTile.r;
+      let startCol = Math.min(...newTiles.map(t => t.c));
+      while (startCol > 0 && this.getTile(board, newTilesMap, r, startCol - 1)) {
+        startCol--;
+      }
+      let endCol = Math.max(...newTiles.map(t => t.c));
+      while (endCol < 14 && this.getTile(board, newTilesMap, r, endCol + 1)) {
+        endCol++;
+      }
+      for (let c = startCol; c <= endCol; c++) {
+        const t = this.getTile(board, newTilesMap, r, c);
+        mainWordTiles.push({ ...t, r, c });
+      }
+    } else {
+      const c = firstTile.c;
+      let startRow = Math.min(...newTiles.map(t => t.r));
+      while (startRow > 0 && this.getTile(board, newTilesMap, startRow - 1, c)) {
+        startRow--;
+      }
+      let endRow = Math.max(...newTiles.map(t => t.r));
+      while (endRow < 14 && this.getTile(board, newTilesMap, endRow + 1, c)) {
+        endRow++;
+      }
+      for (let r = startRow; r <= endRow; r++) {
+        const t = this.getTile(board, newTilesMap, r, c);
+        mainWordTiles.push({ ...t, r, c });
+      }
+    }
+
+    if (mainWordTiles.length >= 2) {
+      const wordStr = mainWordTiles.map(t => t.letter).join('').toUpperCase();
+      const wordKey = mainWordTiles.map(t => ${t.r},).join(';');
+      processedWordKeys.add(wordKey);
+      wordsFormed.push({
+        word: wordStr,
+        tiles: mainWordTiles,
+        isHorizontal
+      });
+    }
+
+    // 2. Extract Cross Words (perpendicular to primary orientation)
+    for (const tile of newTiles) {
+      const { r, c } = tile;
+      let crossTiles = [];
+      if (isHorizontal) {
+        // Look up & down
+        let startR = r;
+        while (startR > 0 && this.getTile(board, newTilesMap, startR - 1, c)) {
+          startR--;
+        }
+        let endR = r;
+        while (endR < 14 && this.getTile(board, newTilesMap, endR + 1, c)) {
+          endR++;
+        }
+        if (startR !== endR) {
+          for (let currR = startR; currR <= endR; currR++) {
+            const t = this.getTile(board, newTilesMap, currR, c);
+            crossTiles.push({ ...t, r: currR, c });
+          }
+        }
+      } else {
+        // Look left & right
+        let startC = c;
+        while (startC > 0 && this.getTile(board, newTilesMap, r, startC - 1)) {
+          startC--;
+        }
+        let endC = c;
+        while (endC < 14 && this.getTile(board, newTilesMap, r, endC + 1)) {
+          endC++;
+        }
+        if (startC !== endC) {
+          for (let currC = startC; currC <= endC; currC++) {
+            const t = this.getTile(board, newTilesMap, r, currC);
+            crossTiles.push({ ...t, r, c: currC });
+          }
+        }
+      }
+
+      if (crossTiles.length >= 2) {
+        const wordKey = crossTiles.map(t => ${t.r},).join(';');
+        if (!processedWordKeys.has(wordKey)) {
+          processedWordKeys.add(wordKey);
+          wordsFormed.push({
+            word: crossTiles.map(t => t.letter).join('').toUpperCase(),
+            tiles: crossTiles,
+            isHorizontal: !isHorizontal
+          });
+        }
+      }
+    }
+
+    if (wordsFormed.length === 0) {
+      return { valid: false, error: 'No valid words of 2 or more letters formed.' };
+    }
+
+    // Validate each word against dictionary
+    const invalidWords = [];
+    for (const item of wordsFormed) {
+      if (!this.dictionary.isValid(item.word)) {
+        invalidWords.push(item.word);
+      }
+    }
+
+    if (invalidWords.length > 0) {
+      return {
+        valid: false,
+        error: Word not in dictionary: "",
+        invalidWords,
+        wordsFormed
+      };
+    }
+
+    // Calculate score for each valid word
+    let totalScore = 0;
+    const tileConfig = mode === 'WWF' ? this.config.WWF_TILES : this.config.SCRABBLE_TILES;
+
+    for (const item of wordsFormed) {
+      let wordBaseScore = 0;
+      let wordMultiplier = 1;
+
+      for (const t of item.tiles) {
+        const isNew = newTilesMap.has(${t.r},);
+        const basePoints = t.isBlank ? 0 : (tileConfig[t.letter]?.points || 0);
+
+        if (isNew) {
+          const squareType = boardLayout[t.r][t.c];
+          let letterMultiplier = 1;
+
+          if (squareType === 'DL') letterMultiplier = 2;
+          else if (squareType === 'TL') letterMultiplier = 3;
+          else if (squareType === 'DW') wordMultiplier *= 2;
+          else if (squareType === 'TW') wordMultiplier *= 3;
+          else if (squareType === 'STAR' && isBoardEmpty) {
+            // In WWF, center star is Double Word on first move
+            wordMultiplier *= 2;
+          }
+
+          wordBaseScore += (basePoints * letterMultiplier);
+        } else {
+          // Existing tiles on board contribute face value only
+          wordBaseScore += basePoints;
+        }
+      }
+
+      item.points = wordBaseScore * wordMultiplier;
+      totalScore += item.points;
+    }
+
+    // Check for Bingo bonus (playing all 7 rack tiles)
+    const isBingo = newTiles.length === this.config.RACK_SIZE;
+    if (isBingo) {
+      totalScore += bingoBonus;
+    }
+
+    return {
+      valid: true,
+      totalScore,
+      wordsFormed,
+      isBingo,
+      bingoBonus: isBingo ? bingoBonus : 0
+    };
+  }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = RulesEngine;
+}
+</script>
+  <script>
+    function runTests() {
+      // Load embedded dictionary synchronously so tests run immediately
+      DICTIONARY.loadEmbeddedWords();
+      const rules = new RulesEngine(GAME_CONFIG, DICTIONARY);
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '';
+
+      const tests = [];
+
+      function createEmptyBoard() {
+        return Array(15).fill(null).map(() => Array(15).fill(null));
+      }
+
+      // Test 1: First move not covering center should fail
+      {
+        const board = createEmptyBoard();
+        const move = [
+          { r: 0, c: 0, letter: 'C', points: 4 },
+          { r: 0, c: 1, letter: 'A', points: 1 },
+          { r: 0, c: 2, letter: 'T', points: 1 }
+        ];
+        const res = rules.validateMove(board, move, 'WWF');
+        tests.push({
+          name: 'First move not covering center star fails validation',
+          passed: res.valid === false && res.error.includes('center star'),
+          details: res
+        });
+      }
+
+      // Test 2: Valid first move covering center (7, 7)
+      {
+        const board = createEmptyBoard();
+        // C A T across (7, 5), (7, 6), (7, 7)
+        // Note: (7, 7) is STAR (Double Word in WWF)
+        const move = [
+          { r: 7, c: 5, letter: 'C', points: 4 },
+          { r: 7, c: 6, letter: 'A', points: 1 },
+          { r: 7, c: 7, letter: 'T', points: 1 }
+        ];
+        const res = rules.validateMove(board, move, 'WWF');
+        // Base score = 4 + 1 + 1 = 6. Multiplied by 2 (STAR) = 12.
+        tests.push({
+          name: 'Valid first move covering center (CAT) doubles score on star',
+          passed: res.valid === true && res.totalScore === 12 && res.wordsFormed[0].word === 'CAT',
+          details: res
+        });
+      }
+
+      // Test 3: Invalid dictionary word should fail
+      {
+        const board = createEmptyBoard();
+        const move = [
+          { r: 7, c: 6, letter: 'X', points: 8 },
+          { r: 7, c: 7, letter: 'Q', points: 10 },
+          { r: 7, c: 8, letter: 'Z', points: 10 }
+        ];
+        const res = rules.validateMove(board, move, 'WWF');
+        tests.push({
+          name: 'Invalid word "XQZ" rejected by dictionary',
+          passed: res.valid === false && res.error.includes('not in dictionary'),
+          details: res
+        });
+      }
+
+      // Test 4: Second move connecting to existing word
+      {
+        const board = createEmptyBoard();
+        board[7][5] = { letter: 'C', points: 4 };
+        board[7][6] = { letter: 'A', points: 1 };
+        board[7][7] = { letter: 'T', points: 1 };
+
+        // Play 'A', 'R' vertically below 'C' at (8, 5) and (9, 5) forming 'CAR'
+        const move = [
+          { r: 8, c: 5, letter: 'A', points: 1 },
+          { r: 9, c: 5, letter: 'R', points: 1 }
+        ];
+        const res = rules.validateMove(board, move, 'WWF');
+        tests.push({
+          name: 'Connecting vertical move (CAR) connects to existing C',
+          passed: res.valid === true && res.wordsFormed[0].word === 'CAR',
+          details: res
+        });
+      }
+
+      // Test 5: Parallel move forming main word AND multiple cross-words
+      {
+        const board = createEmptyBoard();
+        board[7][5] = { letter: 'N', points: 2 };
+        board[7][6] = { letter: 'O', points: 1 };
+
+        // Play 'O', 'N' right below at (8, 5) and (8, 6) forming 'ON' across, plus 'NO' down and 'ON' down!
+        const move = [
+          { r: 8, c: 5, letter: 'O', points: 1 },
+          { r: 8, c: 6, letter: 'N', points: 2 }
+        ];
+        const res = rules.validateMove(board, move, 'WWF');
+        const formed = res.wordsFormed.map(w => w.word).sort();
+        tests.push({
+          name: 'Parallel placement extracts main word and all cross-words',
+          passed: res.valid === true && formed.includes('ON') && formed.includes('NO'),
+          details: res
+        });
+      }
+
+      // Test 6: 7-tile Bingo awards +35 points in WWF mode
+      {
+        const board = createEmptyBoard();
+        // Place 7 tiles on first move covering center (7, 7): e.g. "PLAYERS"
+        const move = [
+          { r: 7, c: 4, letter: 'P', points: 4 },
+          { r: 7, c: 5, letter: 'L', points: 2 },
+          { r: 7, c: 6, letter: 'A', points: 1 },
+          { r: 7, c: 7, letter: 'Y', points: 3 }, // center star (DW)
+          { r: 7, c: 8, letter: 'E', points: 1 },
+          { r: 7, c: 9, letter: 'R', points: 1 },
+          { r: 7, c: 10, letter: 'S', points: 1 }
+        ];
+        const res = rules.validateMove(board, move, 'WWF');
+        tests.push({
+          name: 'Playing all 7 tiles triggers 35 pt Bingo bonus',
+          passed: res.valid === true && res.isBingo === true && res.bingoBonus === 35,
+          details: res
+        });
+      }
+
+      // Render test report
+      tests.forEach((t, i) => {
+        const div = document.createElement('div');
+        div.className = 'test-box ' + (t.passed ? 'pass' : 'fail');
+        div.innerHTML = 
+          <div>
+            <span class="badge "></span>
+            <strong>Test : </strong>
+          </div>
+          <pre></pre>
+        ;
+        resultsDiv.appendChild(div);
+      });
+    }
+
+    runTests();
+  </script>
+</body>
+</html>
+
+

@@ -1,0 +1,170 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scrabble / WWF Rules Engine Unit Tests</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; padding: 25px; background: #1a1a24; color: #e0e0e0; }
+    h1 { color: #ff9800; }
+    .test-box { background: #252836; border-radius: 8px; padding: 15px 20px; margin-bottom: 12px; border-left: 6px solid #555; }
+    .pass { border-left-color: #4caf50; }
+    .fail { border-left-color: #f44336; }
+    .badge { font-weight: bold; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-right: 10px; }
+    .badge-pass { background: #4caf50; color: #fff; }
+    .badge-fail { background: #f44336; color: #fff; }
+    pre { background: #181924; padding: 8px 12px; border-radius: 4px; overflow-x: auto; color: #90caf9; }
+  </style>
+</head>
+<body>
+  <h1>Scrabble / Words with Friends - Rules Engine Verification</h1>
+  <div id="results">Running tests...</div>
+
+  <script src="../js/config.js"></script>
+  <script src="../js/dictionary.js"></script>
+  <script src="../js/rules.js"></script>
+  <script>
+    function runTests() {
+      // Load embedded dictionary synchronously so tests run immediately
+      DICTIONARY.loadEmbeddedWords();
+      const rules = new RulesEngine(GAME_CONFIG, DICTIONARY);
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '';
+
+      const tests = [];
+
+      function createEmptyBoard() {
+        return Array(15).fill(null).map(() => Array(15).fill(null));
+      }
+
+      // Test 1: First move not covering center should fail
+      {
+        const board = createEmptyBoard();
+        const move = [
+          { r: 0, c: 0, letter: 'C', points: 4 },
+          { r: 0, c: 1, letter: 'A', points: 1 },
+          { r: 0, c: 2, letter: 'T', points: 1 }
+        ];
+        const res = rules.validateMove(board, move, 'WWF');
+        tests.push({
+          name: 'First move not covering center star fails validation',
+          passed: res.valid === false && res.error.includes('center star'),
+          details: res
+        });
+      }
+
+      // Test 2: Valid first move covering center (7, 7)
+      {
+        const board = createEmptyBoard();
+        // C A T across (7, 5), (7, 6), (7, 7)
+        // Note: (7, 7) is STAR (Double Word in WWF)
+        const move = [
+          { r: 7, c: 5, letter: 'C', points: 4 },
+          { r: 7, c: 6, letter: 'A', points: 1 },
+          { r: 7, c: 7, letter: 'T', points: 1 }
+        ];
+        const res = rules.validateMove(board, move, 'WWF');
+        // Base score = 4 + 1 + 1 = 6. Multiplied by 2 (STAR) = 12.
+        tests.push({
+          name: 'Valid first move covering center (CAT) doubles score on star',
+          passed: res.valid === true && res.totalScore === 12 && res.wordsFormed[0].word === 'CAT',
+          details: res
+        });
+      }
+
+      // Test 3: Invalid dictionary word should fail
+      {
+        const board = createEmptyBoard();
+        const move = [
+          { r: 7, c: 6, letter: 'X', points: 8 },
+          { r: 7, c: 7, letter: 'Q', points: 10 },
+          { r: 7, c: 8, letter: 'Z', points: 10 }
+        ];
+        const res = rules.validateMove(board, move, 'WWF');
+        tests.push({
+          name: 'Invalid word "XQZ" rejected by dictionary',
+          passed: res.valid === false && res.error.includes('not in dictionary'),
+          details: res
+        });
+      }
+
+      // Test 4: Second move connecting to existing word
+      {
+        const board = createEmptyBoard();
+        board[7][5] = { letter: 'C', points: 4 };
+        board[7][6] = { letter: 'A', points: 1 };
+        board[7][7] = { letter: 'T', points: 1 };
+
+        // Play 'A', 'R' vertically below 'C' at (8, 5) and (9, 5) forming 'CAR'
+        const move = [
+          { r: 8, c: 5, letter: 'A', points: 1 },
+          { r: 9, c: 5, letter: 'R', points: 1 }
+        ];
+        const res = rules.validateMove(board, move, 'WWF');
+        tests.push({
+          name: 'Connecting vertical move (CAR) connects to existing C',
+          passed: res.valid === true && res.wordsFormed[0].word === 'CAR',
+          details: res
+        });
+      }
+
+      // Test 5: Parallel move forming main word AND multiple cross-words
+      {
+        const board = createEmptyBoard();
+        board[7][5] = { letter: 'N', points: 2 };
+        board[7][6] = { letter: 'O', points: 1 };
+
+        // Play 'O', 'N' right below at (8, 5) and (8, 6) forming 'ON' across, plus 'NO' down and 'ON' down!
+        const move = [
+          { r: 8, c: 5, letter: 'O', points: 1 },
+          { r: 8, c: 6, letter: 'N', points: 2 }
+        ];
+        const res = rules.validateMove(board, move, 'WWF');
+        const formed = res.wordsFormed.map(w => w.word).sort();
+        tests.push({
+          name: 'Parallel placement extracts main word and all cross-words',
+          passed: res.valid === true && formed.includes('ON') && formed.includes('NO'),
+          details: res
+        });
+      }
+
+      // Test 6: 7-tile Bingo awards +35 points in WWF mode
+      {
+        const board = createEmptyBoard();
+        // Place 7 tiles on first move covering center (7, 7): e.g. "PLAYERS"
+        const move = [
+          { r: 7, c: 4, letter: 'P', points: 4 },
+          { r: 7, c: 5, letter: 'L', points: 2 },
+          { r: 7, c: 6, letter: 'A', points: 1 },
+          { r: 7, c: 7, letter: 'Y', points: 3 }, // center star (DW)
+          { r: 7, c: 8, letter: 'E', points: 1 },
+          { r: 7, c: 9, letter: 'R', points: 1 },
+          { r: 7, c: 10, letter: 'S', points: 1 }
+        ];
+        const res = rules.validateMove(board, move, 'WWF');
+        tests.push({
+          name: 'Playing all 7 tiles triggers 35 pt Bingo bonus',
+          passed: res.valid === true && res.isBingo === true && res.bingoBonus === 35,
+          details: res
+        });
+      }
+
+      // Render test report
+      tests.forEach((t, i) => {
+        const div = document.createElement('div');
+        div.className = 'test-box ' + (t.passed ? 'pass' : 'fail');
+        div.innerHTML = 
+          <div>
+            <span class="badge "></span>
+            <strong>Test : </strong>
+          </div>
+          <pre></pre>
+        ;
+        resultsDiv.appendChild(div);
+      });
+    }
+
+    runTests();
+  </script>
+</body>
+</html>
+
