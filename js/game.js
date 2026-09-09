@@ -32,7 +32,7 @@ class ScrabbleGame {
       } else if (type === 'TILES_SWAPPED') {
         this.applyRemoteSwap(payload);
       } else if (type === 'ROOM_JOIN') {
-        if (this.onLobbyUpdate) this.onLobbyUpdate(payload);
+        this.handleRemotePlayerJoin(payload);
       } else if (type === 'PLAYER_RENAME') {
         const player = this.players.find(p => p.id === payload.playerId);
         if (player && payload.newName) {
@@ -54,11 +54,101 @@ class ScrabbleGame {
     }
   }
 
-  // Initialize a new game with 2 to 5 players
+  // Add a new player dynamically when they join the room
+  addPlayer(cfg) {
+    if (!cfg) return null;
+    if (this.players.length >= 5) return null;
+
+    let cleanName = (cfg.name || '').trim();
+    if (!cleanName) cleanName = 'Player ' + (this.players.length + 1);
+
+    // If a player with the exact same ID is already in the game, update and return
+    if (cfg.id) {
+      const existingById = this.players.find(p => p.id === cfg.id);
+      if (existingById) {
+        existingById.name = cleanName;
+        this.notifyUpdate();
+        return existingById;
+      }
+    }
+
+    // If another player already has this exact name, disambiguate it so they don't collide
+    const nameExists = this.players.some(p => p.name.toLowerCase() === cleanName.toLowerCase());
+    if (nameExists) {
+      let counter = 2;
+      while (this.players.some(p => p.name.toLowerCase() === (cleanName + ' ' + counter).toLowerCase())) {
+        counter++;
+      }
+      cleanName = cleanName + ' ' + counter;
+    }
+
+    const playerColors = ['#ff9800', '#2196f3', '#4caf50', '#e91e63', '#9c27b0'];
+    const idx = this.players.length;
+    const rack = (cfg.rack && cfg.rack.length > 0) ? cfg.rack : this.drawTiles(this.config.RACK_SIZE);
+    const newPlayer = {
+      id: cfg.id || ('p_' + (idx + 1)),
+      name: cleanName,
+      color: playerColors[idx % playerColors.length],
+      score: cfg.score || 0,
+      rack: rack,
+      isBot: !!cfg.isBot,
+      botLevel: cfg.botLevel || 'medium',
+      passedLastTurn: false
+    };
+
+    this.players.push(newPlayer);
+
+    this.moveHistory.unshift({
+      playerName: newPlayer.name,
+      playerColor: newPlayer.color,
+      action: 'JOIN',
+      description: 'joined the room!',
+      score: 0,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    });
+
+    try { AUDIO.playTurnBell(); } catch (e) {}
+    this.notifyUpdate();
+    return newPlayer;
+  }
+
+  // Handle when another player joins via network
+  handleRemotePlayerJoin(payload) {
+    if (!payload || !payload.playerName) return;
+
+    this.addPlayer({
+      id: payload.playerId,
+      name: payload.playerName,
+      isBot: false
+    });
+
+    if (this.onLobbyUpdate) {
+      this.onLobbyUpdate(payload);
+    }
+
+    // Broadcast current game state back so new player gets the full roster and board
+    if (this.network) {
+      this.network.sendAction('STATE_SYNC', this.serializeState());
+    }
+  }
+
+  // Get the local player entity for the current browser client
+  getLocalPlayer() {
+    if (this.network && this.network.playerId) {
+      const p = this.players.find(pl => pl.id === this.network.playerId);
+      if (p) return p;
+    }
+    if (this.network && this.network.playerName) {
+      const p = this.players.find(pl => pl.name.toLowerCase() === this.network.playerName.toLowerCase());
+      if (p) return p;
+    }
+    return this.players[0] || null;
+  }
+
+  // Initialize a new game (Defaults to 1 human player - no automatic bot!)
   startNewGame({
     playerConfigs = [
-      { name: 'Player 1', isBot: false },
-      { name: 'Player 2', isBot: true, botLevel: 'medium' }
+      { name: 'Player 1', isBot: false }
     ],
     mode = 'WWF',
     timerMinutes = 0
@@ -76,9 +166,10 @@ class ScrabbleGame {
     const playerColors = ['#ff9800', '#2196f3', '#4caf50', '#e91e63', '#9c27b0'];
     this.players = playerConfigs.slice(0, 5).map((cfg, idx) => {
       const rack = this.drawTiles(this.config.RACK_SIZE);
+      const cleanName = (cfg.name || ('Player ' + (idx + 1))).replace(' (Host)', '').replace(' (You)', '').trim();
       return {
-        id: 'p_' + (idx + 1),
-        name: cfg.name || ('Player ' + (idx + 1)),
+        id: cfg.id || (idx === 0 && this.network ? this.network.playerId : ('p_' + (idx + 1))),
+        name: cleanName || ('Player ' + (idx + 1)),
         color: playerColors[idx % playerColors.length],
         score: 0,
         rack: rack,
@@ -93,8 +184,10 @@ class ScrabbleGame {
     this.startTurnTimer();
     this.notifyUpdate();
 
-    // Broadcast initial state to room
-    this.network.sendAction('STATE_SYNC', this.serializeState());
+    // Broadcast initial state to room if host
+    if (this.network && this.network.isHost) {
+      this.network.sendAction('STATE_SYNC', this.serializeState());
+    }
 
     this.checkBotTurn();
   }
@@ -271,7 +364,7 @@ class ScrabbleGame {
   }
 
   shuffleRack() {
-    const player = this.getCurrentPlayer();
+    const player = this.getLocalPlayer ? this.getLocalPlayer() : this.getCurrentPlayer();
     if (!player || !player.rack) return;
     for (let i = player.rack.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -293,6 +386,9 @@ class ScrabbleGame {
 
   checkBotTurn() {
     if (this.gameOver) return;
+    if (this.network && !this.network.isHost && this.players.length > 1) {
+      return; // Only host executes bot moves in multiplayer
+    }
     const player = this.getCurrentPlayer();
     if (player && player.isBot) {
       setTimeout(() => {
@@ -384,8 +480,22 @@ class ScrabbleGame {
   applyFullState(state) {
     if (!state) return;
     this.board = state.board || this.board;
-    this.players = state.players || this.players;
-    this.currentTurnIndex = state.currentTurnIndex || 0;
+
+    if (state.players && state.players.length > 0) {
+      this.players = state.players;
+      // If we find our player in the incoming state by ID, update local player name if host disambiguated us
+      if (this.network && this.network.playerId) {
+        const me = this.players.find(p => p.id === this.network.playerId);
+        if (me && me.name && me.name !== this.network.playerName) {
+          this.network.playerName = me.name;
+          if (this.onPlayerRenamed) {
+            this.onPlayerRenamed(me.name);
+          }
+        }
+      }
+    }
+
+    this.currentTurnIndex = state.currentTurnIndex !== undefined ? state.currentTurnIndex : this.currentTurnIndex;
     this.mode = state.mode || this.mode;
     this.moveHistory = state.moveHistory || this.moveHistory;
     this.gameOver = !!state.gameOver;

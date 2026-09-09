@@ -85,7 +85,7 @@ class BoardController {
     if (!rackEl) return;
     rackEl.innerHTML = '';
 
-    const currentPlayer = this.game.getCurrentPlayer();
+    const currentPlayer = this.game.getLocalPlayer ? this.game.getLocalPlayer() : this.game.getCurrentPlayer();
     if (!currentPlayer || !currentPlayer.rack) return;
 
     const stagedIndices = new Set();
@@ -130,7 +130,7 @@ class BoardController {
       const tileEl = e.target.closest('.wood-tile');
       if (!tileEl) return;
       const index = parseInt(tileEl.dataset.index);
-      const player = this.game.getCurrentPlayer();
+      const player = this.game.getLocalPlayer ? this.game.getLocalPlayer() : this.game.getCurrentPlayer();
       if (!player || !player.rack[index]) return;
       const tileData = player.rack[index];
       this.draggedTileData = { ...tileData, rackIndex: index, from: 'rack' };
@@ -255,7 +255,7 @@ class BoardController {
           const targetIndex = parseInt(targetSlot.dataset.index);
           const sourceIndex = data.rackIndex;
           if (!isNaN(targetIndex) && !isNaN(sourceIndex) && targetIndex !== sourceIndex) {
-            const player = this.game.getCurrentPlayer();
+            const player = this.game.getLocalPlayer ? this.game.getLocalPlayer() : this.game.getCurrentPlayer();
             if (player && player.rack) {
               const tile = player.rack.splice(sourceIndex, 1)[0];
               player.rack.splice(targetIndex, 0, tile);
@@ -273,7 +273,7 @@ class BoardController {
           const targetIndex = parseInt(targetSlot.dataset.index);
           const sourceIndex = data.rackIndex;
           if (!isNaN(targetIndex) && !isNaN(sourceIndex) && targetIndex !== sourceIndex) {
-            const player = this.game.getCurrentPlayer();
+            const player = this.game.getLocalPlayer ? this.game.getLocalPlayer() : this.game.getCurrentPlayer();
             if (player && player.rack) {
               const tile = player.rack.splice(sourceIndex, 1)[0];
               player.rack.splice(targetIndex, 0, tile);
@@ -339,7 +339,7 @@ class BoardController {
           return;
         }
 
-        const player = this.game.getCurrentPlayer();
+        const player = this.game.getLocalPlayer ? this.game.getLocalPlayer() : this.game.getCurrentPlayer();
         const tileData = player.rack[this.selectedRackIndex];
 
         if (tileData.isBlank) {
@@ -417,9 +417,17 @@ class BoardController {
     const playBtn = this.elements.playBtn;
     if (!previewEl) return;
 
+    const activePlayer = this.game.getCurrentPlayer();
+    const localPlayer = this.game.getLocalPlayer ? this.game.getLocalPlayer() : activePlayer;
+    const isMyTurn = (!activePlayer || !localPlayer) ? true : (activePlayer.id === localPlayer.id);
+
     if (this.stagedTiles.size === 0) {
       previewEl.className = 'score-preview preview-idle';
-      previewEl.innerHTML = '<span>Place tiles on board to preview score</span>';
+      if (this.game.players.length > 1 && !isMyTurn && activePlayer) {
+        previewEl.innerHTML = '<span>⏳ Waiting for <strong>' + activePlayer.name + "'s</strong> turn...</span>";
+      } else {
+        previewEl.innerHTML = '<span>Place tiles on board to preview score</span>';
+      }
       if (playBtn) playBtn.disabled = true;
       return;
     }
@@ -432,7 +440,7 @@ class BoardController {
       const wordsStr = res.wordsFormed.map(w => '<strong>' + w.word + '</strong> (+' + w.points + ')').join(' + ');
       const bingoTag = res.isBingo ? ' <span class="bingo-badge">+35 BINGO!</span>' : '';
       previewEl.innerHTML = '✓ Valid Play: ' + wordsStr + bingoTag + ' = <strong>' + res.totalScore + ' pts</strong>';
-      if (playBtn) playBtn.disabled = false;
+      if (playBtn) playBtn.disabled = (this.game.players.length > 1 && !isMyTurn);
     } else {
       previewEl.className = 'score-preview preview-invalid';
       previewEl.innerHTML = '✗ ' + res.error;
@@ -443,6 +451,14 @@ class BoardController {
   // Submit currently staged move
   submitStagedMove() {
     if (this.stagedTiles.size === 0) return;
+
+    const activePlayer = this.game.getCurrentPlayer();
+    const localPlayer = this.game.getLocalPlayer ? this.game.getLocalPlayer() : activePlayer;
+    if (this.game.players.length > 1 && activePlayer && localPlayer && activePlayer.id !== localPlayer.id) {
+      alert('Please wait for ' + activePlayer.name + "'s turn!");
+      return;
+    }
+
     const stagedArray = Array.from(this.stagedTiles.values());
     const res = this.game.playMove(stagedArray);
 

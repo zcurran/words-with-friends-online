@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const boardCtrl = new BoardController(game, elements);
 
   // 2. Room & Player Name State (Persistent across refreshes)
-  let localPlayerName = localStorage.getItem('wwf_player_name') || 'Player 1';
+  let localPlayerName = localStorage.getItem('wwf_player_name');
 
   // Check URL params for ?room=CODE first
   const urlParams = new URLSearchParams(window.location.search);
@@ -55,8 +55,14 @@ document.addEventListener('DOMContentLoaded', () => {
     isHost = true;
   }
 
+  if (!localPlayerName) {
+    localPlayerName = isHost ? 'Player 1' : 'Player 2';
+  } else if (!isHost && localPlayerName === 'Player 1') {
+    localPlayerName = 'Player 2';
+  }
+
   let lobbyPlayers = [
-    { name: localPlayerName + ' (You)', isBot: false, isHost: isHost }
+    { name: localPlayerName, isBot: false, isHost: isHost }
   ];
 
   function updateHeaderName(name) {
@@ -101,11 +107,15 @@ document.addEventListener('DOMContentLoaded', () => {
     playersListEl.innerHTML = '';
 
     const countIndicator = document.getElementById('player-count-indicator');
-    if (countIndicator) countIndicator.innerText = gameState.players.length + ' Players';
+    if (countIndicator) {
+      countIndicator.innerText = gameState.players.length === 1 ? '1 Player' : (gameState.players.length + ' Players');
+    }
+
+    const localPlayer = game.getLocalPlayer ? game.getLocalPlayer() : null;
 
     gameState.players.forEach((p, idx) => {
       const isCurrent = idx === gameState.currentTurnIndex;
-      const isLocal = idx === 0 && !p.isBot;
+      const isLocal = localPlayer ? (p.id === localPlayer.id) : ((idx === 0 && !p.isBot) || (game.network && game.network.playerName && p.name.toLowerCase() === game.network.playerName.toLowerCase()));
       const card = document.createElement('div');
       card.className = 'player-card' + (isCurrent ? ' active-turn' : '');
       card.style.borderColor = p.color;
@@ -137,6 +147,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
       playersListEl.appendChild(card);
     });
+
+    // Synchronize lobby players with active game roster
+    lobbyPlayers = gameState.players.map((p, i) => ({
+      id: p.id,
+      name: p.name,
+      isBot: p.isBot,
+      isHost: i === 0
+    }));
+    renderLobbyRoster();
   }
 
   function renderMoveHistory(gameState) {
@@ -319,15 +338,14 @@ document.addEventListener('DOMContentLoaded', () => {
   if (tabBtnJoin) tabBtnJoin.onclick = () => setTab('join');
   if (tabBtnLocal) tabBtnLocal.onclick = () => setTab('local');
 
-  // If URL had room param, open Join tab immediately
+  // If URL had room param, prefill Join tab input
   if (roomParam) {
     setTab('join');
     const joinInput = document.getElementById('join-code-input');
     if (joinInput) joinInput.value = roomParam;
-    openLobbyModal();
   }
 
-  // Add bot button in lobby
+  // Add bot button in lobby (Strictly opt-in)
   const btnAddBot = document.getElementById('btn-lobby-add-bot');
   if (btnAddBot) {
     btnAddBot.onclick = () => {
@@ -345,7 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  // Start Room Match (Host)
+  // Start Room Match (Host) - Never force-inject a bot
   const btnStartLobby = document.getElementById('btn-lobby-start-game');
   if (btnStartLobby) {
     btnStartLobby.onclick = () => {
@@ -353,11 +371,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const mode = modeRadio ? modeRadio.value : 'WWF';
       const timerSelect = document.getElementById('lobby-timer-select');
       const timerVal = timerSelect ? parseInt(timerSelect.value) : 0;
-
-      // Need at least 2 players
-      if (lobbyPlayers.length < 2) {
-        lobbyPlayers.push({ name: 'WordBot 1', isBot: true, botLevel: 'medium' });
-      }
 
       document.getElementById('lobby-modal').classList.add('hidden');
       game.startNewGame({
@@ -383,11 +396,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       updateRoomUI(code, false);
+      localPlayerName = name;
+      localStorage.setItem('wwf_player_name', name);
+      updateHeaderName(name);
       game.network.playerName = name;
       game.network.setRoomCode(code, false);
 
       document.getElementById('lobby-modal').classList.add('hidden');
-      alert('Joined room ' + code + ' as ' + name + '!\nWaiting for host to start or sync match.');
     };
   }
 
@@ -597,11 +612,17 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   });
 
-  // 11. Start Initial Default Game (Local Player + WordBot in WWF mode)
+  // Listen for player name updates from network
+  game.onPlayerRenamed = (newName) => {
+    localPlayerName = newName;
+    localStorage.setItem('wwf_player_name', newName);
+    updateHeaderName(newName);
+  };
+
+  // 11. Start Initial Default Game (Single local human player - NO automatic bot!)
   game.startNewGame({
     playerConfigs: [
-      { name: localPlayerName, isBot: false },
-      { name: 'Word Bot', isBot: true, botLevel: 'medium' }
+      { id: game.network.playerId, name: localPlayerName, isBot: false }
     ],
     mode: 'WWF',
     timerMinutes: 0
