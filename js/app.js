@@ -177,16 +177,84 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderLobbyRoster() {
     const container = document.getElementById('lobby-connected-players');
     const countEl = document.getElementById('lobby-player-count');
+    const botStatusLabel = document.getElementById('bot-status-label');
+    const btnRemoveBot = document.getElementById('btn-lobby-remove-bot');
     if (!container) return;
     container.innerHTML = '';
     if (countEl) countEl.innerText = lobbyPlayers.length;
 
+    const botCount = lobbyPlayers.filter(p => p.isBot).length;
+    if (botStatusLabel) {
+      botStatusLabel.innerText = botCount === 0 ? 'None (0 added)' : (botCount + ' bot' + (botCount > 1 ? 's' : '') + ' added');
+    }
+    if (btnRemoveBot) {
+      btnRemoveBot.disabled = (botCount === 0);
+      btnRemoveBot.style.background = botCount > 0 ? '#ef4444' : '#475569';
+      btnRemoveBot.style.color = botCount > 0 ? '#fff' : '#94a3b8';
+      btnRemoveBot.style.cursor = botCount > 0 ? 'pointer' : 'default';
+    }
+
     lobbyPlayers.forEach((p, i) => {
       const item = document.createElement('div');
       item.className = 'lobby-player-item';
-      item.innerHTML = 
-        '<span>' + (i + 1) + '. <strong>' + p.name + '</strong> ' + (p.isHost ? '(Host)' : '') + (p.isBot ? ' [BOT]' : '') + '</span>' +
-        '<span class="lobby-player-ready">✓ Ready</span>';
+
+      const leftCol = document.createElement('div');
+      leftCol.style.display = 'flex';
+      leftCol.style.alignItems = 'center';
+      leftCol.style.gap = '8px';
+
+      const avatar = document.createElement('span');
+      avatar.style.width = '24px';
+      avatar.style.height = '24px';
+      avatar.style.borderRadius = '50%';
+      avatar.style.background = p.isBot ? '#7c3aed' : (p.isHost ? '#ff9800' : '#2196f3');
+      avatar.style.color = '#fff';
+      avatar.style.fontSize = '12px';
+      avatar.style.fontWeight = '800';
+      avatar.style.display = 'inline-flex';
+      avatar.style.alignItems = 'center';
+      avatar.style.justifyContent = 'center';
+      avatar.innerText = p.isBot ? '🤖' : (p.name || 'P').charAt(0).toUpperCase();
+      leftCol.appendChild(avatar);
+
+      const nameSpan = document.createElement('span');
+      nameSpan.innerHTML = '<strong>' + p.name + '</strong>' + 
+        (p.isHost ? ' <span style="color:#ff9800; font-size:11px; font-weight:700;">(Host)</span>' : '') +
+        (p.isBot ? ' <span class="bot-badge">BOT</span>' : '');
+      leftCol.appendChild(nameSpan);
+
+      item.appendChild(leftCol);
+
+      const rightCol = document.createElement('div');
+      rightCol.style.display = 'flex';
+      rightCol.style.alignItems = 'center';
+      rightCol.style.gap = '8px';
+
+      if (p.isBot) {
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'action-btn';
+        removeBtn.style.background = 'rgba(239, 68, 68, 0.2)';
+        removeBtn.style.color = '#ef4444';
+        removeBtn.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+        removeBtn.style.fontSize = '11px';
+        removeBtn.style.padding = '2px 8px';
+        removeBtn.style.borderRadius = '4px';
+        removeBtn.innerText = '✕ Remove';
+        removeBtn.onclick = (e) => {
+          e.stopPropagation();
+          lobbyPlayers.splice(i, 1);
+          renderLobbyRoster();
+        };
+        rightCol.appendChild(removeBtn);
+      } else {
+        const readyBadge = document.createElement('span');
+        readyBadge.className = 'lobby-player-ready';
+        readyBadge.innerText = '✓ Ready';
+        rightCol.appendChild(readyBadge);
+      }
+
+      item.appendChild(rightCol);
       container.appendChild(item);
     });
   }
@@ -363,6 +431,18 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  // Remove bot button in lobby
+  const btnRemoveBot = document.getElementById('btn-lobby-remove-bot');
+  if (btnRemoveBot) {
+    btnRemoveBot.onclick = () => {
+      const lastBotIndex = lobbyPlayers.map(p => p.isBot).lastIndexOf(true);
+      if (lastBotIndex !== -1) {
+        lobbyPlayers.splice(lastBotIndex, 1);
+        renderLobbyRoster();
+      }
+    };
+  }
+
   // Start Room Match (Host) - Never force-inject a bot
   const btnStartLobby = document.getElementById('btn-lobby-start-game');
   if (btnStartLobby) {
@@ -417,11 +497,14 @@ document.addEventListener('DOMContentLoaded', () => {
     for (let i = 1; i <= count; i++) {
       const row = document.createElement('div');
       row.className = 'player-config-row';
+      const defaultName = (i === 1) ? localPlayerName : ('Player ' + i);
       row.innerHTML = 
-        '<input type="text" class="form-input" id="local-name-' + i + '" value="' + (i === 1 ? 'Player 1' : 'Player ' + i) + '">' +
-        '<label style="font-size: 12px; display: flex; align-items: center; gap: 4px;">' +
-          '<input type="checkbox" id="local-bot-' + i + '" ' + (i > 1 ? '' : '') + '> Bot' +
-        '</label>';
+        '<input type="text" class="form-input" id="local-name-' + i + '" value="' + defaultName + '" placeholder="Player ' + i + '">' +
+        (count > 1 ? (
+          '<label style="font-size: 12px; display: flex; align-items: center; gap: 4px; color: #94a3b8; cursor: pointer; white-space: nowrap;">' +
+            '<input type="checkbox" id="local-bot-' + i + '"> AI Bot' +
+          '</label>'
+        ) : '');
       container.appendChild(row);
     }
   }
@@ -630,4 +713,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 12. Async load full ENABLE1 dictionary in background
   DICTIONARY.init('data/enable1.txt');
+
+  // 13. Load directly into Game Lobby & Start Menu first
+  openLobbyModal();
+  if (roomParam && !isHost) {
+    setTab('join');
+  } else {
+    setTab('create');
+  }
 });

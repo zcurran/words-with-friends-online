@@ -93,19 +93,20 @@
 
   </main>
 
-  <!-- MODAL: Lobby & Friend Code (Create / Join Rooms) -->
-  <div class="modal-overlay hidden" id="lobby-modal">
+  <!-- MODAL: Game Lobby & Start Menu (Create / Join Rooms / Solo) -->
+  <div class="modal-overlay" id="lobby-modal">
     <div class="modal-box" style="max-width: 580px;">
-      <div class="modal-header">
-        <div class="modal-title">🎮 Multiplayer Lobby</div>
-        <button class="modal-close">&times;</button>
+      <div class="modal-header" style="margin-bottom: 6px;">
+        <div class="modal-title">🎮 Words with Friends - Start Menu & Lobby</div>
+        <button class="modal-close" title="Close and view board">&times;</button>
       </div>
+      <p style="color: #94a3b8; font-size: 13px; margin: 0 0 16px;">Host an online game with friends, join an existing lobby with a code, or play solo.</p>
 
       <!-- Lobby Tabs -->
       <div class="lobby-tabs">
-        <button class="lobby-tab-btn active" id="tab-btn-create">Create Room (Host)</button>
-        <button class="lobby-tab-btn" id="tab-btn-join">Join with Code</button>
-        <button class="lobby-tab-btn" id="tab-btn-local">Pass & Play / Solo</button>
+        <button class="lobby-tab-btn active" id="tab-btn-create">🎮 Create Room (Host)</button>
+        <button class="lobby-tab-btn" id="tab-btn-join">🔗 Join with Code</button>
+        <button class="lobby-tab-btn" id="tab-btn-local">🕹️ Solo / Pass & Play</button>
       </div>
 
       <!-- Tab 1: Create Room (Host) -->
@@ -122,11 +123,25 @@
         </div>
 
         <div class="form-group" style="margin-top: 14px;">
-          <label class="form-label">Players in Lobby (<span id="lobby-player-count">1</span>/5)</label>
+          <label class="form-label">Players in Room (<span id="lobby-player-count">1</span>/5)</label>
           <div class="lobby-player-list" id="lobby-connected-players">
             <!-- Populated dynamically -->
           </div>
-          <button class="action-btn" id="btn-lobby-add-bot" style="background: #475569; color: #fff; font-size: 12px; padding: 6px 12px; margin-top: 6px;">+ Add Bot Player</button>
+        </div>
+
+        <!-- Bot Opponents (Strictly Optional, Off by Default) -->
+        <div class="form-group" style="background: rgba(15, 23, 42, 0.45); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 10px 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <span style="font-weight: 700; font-size: 13px; color: #f8fafc;">🤖 Bot Opponents:</span>
+              <span id="bot-status-label" style="font-size: 12px; color: #94a3b8; margin-left: 6px;">None (0 added)</span>
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" class="action-btn" id="btn-lobby-add-bot" style="background: #2563eb; color: #fff; font-size: 12px; padding: 5px 12px;">+ Add Bot</button>
+              <button type="button" class="action-btn" id="btn-lobby-remove-bot" style="background: #475569; color: #94a3b8; font-size: 12px; padding: 5px 12px;" disabled>- Remove Bot</button>
+            </div>
+          </div>
+          <p style="font-size: 11px; color: #64748b; margin: 6px 0 0;">No bots are added by default. Use "+ Add Bot" if you want to play against the computer.</p>
         </div>
 
         <div class="form-group">
@@ -162,11 +177,13 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Your Name</label>
+          <label class="form-label">Your Display Name</label>
           <input type="text" class="form-input" id="join-name-input" placeholder="Your Name" value="Guest Player">
         </div>
 
-        <button class="btn-primary" id="btn-submit-join">Enter Room</button>
+        <p style="font-size: 12px; color: #94a3b8; margin: 10px 0 16px; text-align: center;">Enter your friend's 4-digit code above or paste an invite link to connect immediately.</p>
+
+        <button class="btn-primary" id="btn-submit-join">🚀 Join Room</button>
       </div>
 
       <!-- Tab 3: Pass & Play / Solo -->
@@ -174,6 +191,7 @@
         <div class="form-group">
           <label class="form-label">Number of Players</label>
           <select class="form-select" id="local-player-count-select">
+            <option value="1">1 Player (Solo Practice)</option>
             <option value="2" selected>2 Players</option>
             <option value="3">3 Players</option>
             <option value="4">4 Players</option>
@@ -182,13 +200,13 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Player Roster</label>
+          <label class="form-label">Player Roster (Check "Bot" to make a player AI)</label>
           <div id="local-player-rows">
             <!-- Generated dynamically -->
           </div>
         </div>
 
-        <button class="btn-primary" id="btn-start-local-game">Start Local Game</button>
+        <button class="btn-primary" id="btn-start-local-game">▶ Start Local Game</button>
       </div>
 
     </div>
