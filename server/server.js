@@ -614,6 +614,69 @@ io.on('connection', (socket) => {
     });
     socket.to(inviteCode).emit('sync_state', serializeSession(session));
   });
+
+  // Explicit leave event without full socket disconnect
+  socket.on('player_leave', (data = {}) => {
+    const inviteCode = data.inviteCode || (socket.data && socket.data.inviteCode);
+    if (!inviteCode) return;
+    const session = sessions.get(inviteCode);
+    if (!session) return;
+    
+    const playerId = data.playerId || (socket.data && socket.data.playerId);
+    const playerIndex = session.players.findIndex(p => p.id === playerId);
+    if (playerIndex === -1) return;
+
+    const player = session.players[playerIndex];
+    const isGameStarted = session.moveHistory.some(m => m.action === 'PLAY');
+
+    if (!isGameStarted) {
+      session.players.splice(playerIndex, 1);
+      session.players.forEach((p, idx) => { p.seatIndex = idx; });
+      if (session.currentTurnIndex >= session.players.length) session.currentTurnIndex = 0;
+    } else {
+      player.isOffline = true;
+      if (session.currentTurnIndex === playerIndex) {
+        advanceTurn(session);
+      }
+    }
+    
+    session.moveHistory.unshift({
+      playerName: player.name,
+      playerColor: player.color,
+      action: 'LEAVE',
+      description: 'left the room.',
+      score: 0,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    });
+
+    socket.leave(inviteCode);
+    socket.to(inviteCode).emit('player_left', {
+      playerId: playerId,
+      playerName: player.name,
+      session: serializeSession(session)
+    });
+    socket.to(inviteCode).emit('sync_state', serializeSession(session));
+  });
+
+  // Chat message listener
+  socket.on('chat_message', (data = {}) => {
+    const inviteCode = data.inviteCode || (socket.data && socket.data.inviteCode);
+    if (!inviteCode) return;
+    const session = sessions.get(inviteCode);
+    if (!session) return;
+
+    const playerId = data.playerId || (socket.data && socket.data.playerId);
+    const player = session.players.find(p => p.id === playerId);
+    if (player && data.message) {
+      io.to(inviteCode).emit('chat_message', {
+        playerId: player.id,
+        playerName: player.name,
+        playerColor: player.color,
+        message: data.message,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+    }
+  });
 });
 
 // Start Server

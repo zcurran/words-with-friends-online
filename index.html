@@ -56,6 +56,18 @@
           <li class="history-item">Game started. Place your opening word across the center star (★)!</li>
         </ul>
       </div>
+
+      <!-- Chat Channel -->
+      <div class="panel-card" style="display: flex; flex-direction: column; flex: 1; min-height: 200px;">
+        <div class="panel-title">Room Chat</div>
+        <ul class="chat-list" id="chat-messages-list" style="flex: 1; overflow-y: auto; padding: 10px; margin: 0; list-style: none; font-size: 13px;">
+          <!-- Chat messages go here -->
+        </ul>
+        <div class="chat-input-row" style="display: flex; padding: 10px; border-top: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);">
+          <input type="text" id="chat-input" placeholder="Type a message..." style="flex: 1; padding: 8px; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; background: rgba(15,23,42,0.8); color: #fff; font-size: 13px;" />
+          <button id="btn-send-chat" class="action-btn" style="margin-left: 6px; padding: 8px 12px; background: #0284c7; color: white;">Send</button>
+        </div>
+      </div>
     </aside>
 
     <!-- Center Play Area -->

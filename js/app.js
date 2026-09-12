@@ -795,7 +795,39 @@ document.addEventListener('DOMContentLoaded', () => {
   // 12. Async load full ENABLE1 dictionary in background
   DICTIONARY.init('data/enable1.txt');
 
-  // 13. Load directly into Game Lobby & Start Menu first
+  // 13. Chat UI wiring
+  game.onChatMessage = (data) => {
+    const list = document.getElementById('chat-messages-list');
+    if (!list) return;
+    const li = document.createElement('li');
+    li.style.marginBottom = '6px';
+    li.innerHTML = '<span style="color:#94a3b8; font-size:11px;">[' + data.timestamp + ']</span> ' +
+                   '<strong style="color:' + data.playerColor + ';">' + data.playerName + ':</strong> ' +
+                   '<span>' + data.message + '</span>';
+    list.appendChild(li);
+    list.scrollTop = list.scrollHeight;
+  };
+
+  const btnSendChat = document.getElementById('btn-send-chat');
+  const inputChat = document.getElementById('chat-input');
+  
+  function sendChat() {
+    if (!inputChat) return;
+    const msg = inputChat.value.trim();
+    if (msg) {
+      game.network.sendChatMessage(msg);
+      inputChat.value = '';
+    }
+  }
+
+  if (btnSendChat) btnSendChat.onclick = sendChat;
+  if (inputChat) {
+    inputChat.onkeydown = (e) => {
+      if (e.key === 'Enter') sendChat();
+    };
+  }
+
+  // 14. Load directly into Game Lobby & Start Menu first
   openLobbyModal();
   if (roomParam && !isHost) {
     setTab('join');

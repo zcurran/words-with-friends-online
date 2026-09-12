@@ -44,6 +44,12 @@ class NetworkManager {
           playerId: this.playerId,
           playerName: this.playerName
         });
+        if (this.socket && this.socket.connected) {
+          this.socket.emit('player_leave', {
+            inviteCode: this.roomCode,
+            playerId: this.playerId
+          });
+        }
       }
     };
     window.addEventListener('beforeunload', handleUnload);
@@ -161,6 +167,13 @@ class NetworkManager {
           this.game.onRemotePlayerPositions(data);
         }
       });
+
+      this.socket.on('chat_message', (data) => {
+        console.log('[Network] chat_message received:', data);
+        if (this.game && this.game.onChatMessage) {
+          this.game.onChatMessage(data);
+        }
+      });
     } catch (e) {
       console.warn('[Network] Socket.io init error:', e);
     }
@@ -235,6 +248,16 @@ class NetworkManager {
     }
   }
 
+  sendChatMessage(message) {
+    if (this.socket && this.socket.connected && this.roomCode && message) {
+      this.socket.emit('chat_message', {
+        inviteCode: this.roomCode,
+        playerId: this.playerId,
+        message: message
+      });
+    }
+  }
+
   setRoomCode(code, isHost = false) {
     const newCode = (code || '').toUpperCase().trim();
     if (this.roomCode && this.roomCode !== newCode) {
@@ -243,6 +266,12 @@ class NetworkManager {
         playerId: this.playerId,
         playerName: this.playerName
       });
+      if (this.socket && this.socket.connected) {
+        this.socket.emit('player_leave', {
+          inviteCode: this.roomCode,
+          playerId: this.playerId
+        });
+      }
     }
     this.roomCode = newCode;
     this.isHost = isHost;
