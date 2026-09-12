@@ -476,7 +476,40 @@ class ScrabbleGame {
 
     const localPlayer = this.getLocalPlayer();
     if (localPlayer && this.getCurrentPlayer() && this.getCurrentPlayer().id === localPlayer.id) {
-      AUDIO.playTurnBell();
+      try { AUDIO.playTurnBell(); } catch (e) {}
+      
+      // Visual Fallback 1: Browser Tab Title Flash
+      let flashCount = 0;
+      const originalTitle = document.title;
+      // Clear any existing flash interval to prevent overlapping
+      if (window._turnFlashInterval) clearInterval(window._turnFlashInterval);
+      window._turnFlashInterval = setInterval(() => {
+        document.title = flashCount % 2 === 0 ? "⚠️ YOUR TURN! ⚠️" : "Words with Friends Online (1 to 10 Players)";
+        flashCount++;
+        if (flashCount > 10) { 
+          clearInterval(window._turnFlashInterval); 
+          document.title = "Words with Friends Online (1 to 10 Players)"; 
+        }
+      }, 500);
+
+      // Visual Fallback 2: Big On-Screen Toast
+      const toast = document.createElement('div');
+      toast.innerText = "⭐ IT IS YOUR TURN! ⭐";
+      toast.style.cssText = "position:fixed; top:80px; left:50%; transform:translate(-50%, -20px); background:linear-gradient(135deg, #ff9800, #f57c00); color:#000; padding:15px 35px; font-size:22px; font-weight:900; border-radius:12px; box-shadow:0 15px 35px rgba(0,0,0,0.6); z-index:9999; opacity:0; transition:all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); pointer-events:none; border:2px solid #fff;";
+      document.body.appendChild(toast);
+      
+      // Trigger entrance
+      requestAnimationFrame(() => {
+        toast.style.transform = "translate(-50%, 0)";
+        toast.style.opacity = "1";
+      });
+      
+      // Trigger exit after 4s
+      setTimeout(() => {
+        toast.style.transform = "translate(-50%, -20px)";
+        toast.style.opacity = "0";
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
     }
 
     this.startTurnTimer();
