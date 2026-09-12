@@ -19,7 +19,10 @@
       </div>
     </div>
 
-    <div class="header-controls">
+    <!-- Mobile hamburger -->
+    <button class="hamburger-btn" id="btn-hamburger" aria-label="Toggle menu" aria-expanded="false">☰</button>
+
+    <div class="header-controls" id="header-controls">
       <button class="header-btn room-badge-btn" id="btn-open-lobby">
         👥 Room: <strong id="header-room-code" style="color: #ffd54f;">LOCAL</strong> <span id="header-lock-badge" style="display:none;">🔒</span>
       </button>
@@ -191,6 +194,19 @@
         </div>
 
         <div class="form-group">
+          <label class="form-label">Board Size</label>
+          <select class="form-select" id="lobby-board-size-select">
+            <option value="11">11×11 (Mini)</option>
+            <option value="13">13×13</option>
+            <option value="15" selected>15×15 (Standard)</option>
+            <option value="17">17×17</option>
+            <option value="20">20×20</option>
+            <option value="25">25×25 (Large)</option>
+            <option value="50">50×50 (Mega)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
           <label class="form-label">Turn Timer</label>
           <select class="form-select" id="lobby-timer-select">
             <option value="0" selected>Untimed (Casual)</option>
@@ -232,6 +248,19 @@
 
       <!-- Tab 3: Pass & Play / Solo -->
       <div class="lobby-tab-content hidden" id="tab-content-local">
+        <div class="form-group">
+          <label class="form-label">Board Size</label>
+          <select class="form-select" id="local-board-size-select">
+            <option value="11">11×11 (Mini)</option>
+            <option value="13">13×13</option>
+            <option value="15" selected>15×15 (Standard)</option>
+            <option value="17">17×17</option>
+            <option value="20">20×20</option>
+            <option value="25">25×25 (Large)</option>
+            <option value="50">50×50 (Mega)</option>
+          </select>
+        </div>
+
         <div class="form-group">
           <label class="form-label">Number of Players</label>
           <select class="form-select" id="local-player-count-select">
@@ -333,15 +362,15 @@
       document.write('<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"><\\/script>');
     }
   </script>
-  <script src="js/config.js?v=2.2"></script>
-  <script src="js/dictionary.js?v=2.2"></script>
-  <script src="js/rules.js?v=2.2"></script>
-  <script src="js/audio.js?v=2.2"></script>
-  <script src="js/ai.js?v=2.2"></script>
-  <script src="js/network.js?v=2.2"></script>
-  <script src="js/board.js?v=2.2"></script>
-  <script src="js/game.js?v=2.2"></script>
-  <script src="js/app.js?v=2.2"></script>
+  <script src="js/config.js?v=2.3"></script>
+  <script src="js/dictionary.js?v=2.3"></script>
+  <script src="js/rules.js?v=2.3"></script>
+  <script src="js/audio.js?v=2.3"></script>
+  <script src="js/ai.js?v=2.3"></script>
+  <script src="js/network.js?v=2.3"></script>
+  <script src="js/board.js?v=2.3"></script>
+  <script src="js/game.js?v=2.3"></script>
+  <script src="js/app.js?v=2.3"></script>
 
 </body>
 </html>

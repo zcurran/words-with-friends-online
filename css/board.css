@@ -1,4 +1,4 @@
-﻿/* Words with Friends 15x15 Board & Tile Styling */
+/* Words with Friends 15x15 Board & Tile Styling */
 
 :root {
   --board-bg: #e8e2d5;
@@ -13,32 +13,36 @@
   --tile-border: #d7ccc8;
   --tile-text: #2c2523;
   --tile-shadow: rgba(0, 0, 0, 0.25);
-  --cell-size: min(36px, max(22px, calc((100vh - 270px) / 15)));
+  /* --cell-size is written dynamically by applyBoardSize() in board.js */
+  --cell-size: 36px;
 }
 
 @media (max-width: 768px) {
   :root {
-    --cell-size: min(24px, calc((100vw - 32px) / 15));
+    --cell-size: 24px;
   }
 }
 
 .board-container {
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   padding: 2px;
+  overflow: auto;  /* allows scrolling for large boards like 50x50 */
+  max-height: calc(100vh - 220px);
+  max-width: 100%;
 }
 
 #scrabble-board {
+  /* grid-template-columns & rows are set dynamically by applyBoardSize() in board.js */
   display: grid;
-  grid-template-columns: repeat(15, var(--cell-size));
-  grid-template-rows: repeat(15, var(--cell-size));
   gap: 2px;
   background-color: #3e2723;
   padding: 5px;
   border-radius: 10px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 2px 4px rgba(255, 255, 255, 0.1);
   user-select: none;
+  flex-shrink: 0; /* prevent grid from collapsing */
 }
 
 .board-cell {

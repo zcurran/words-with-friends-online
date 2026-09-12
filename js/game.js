@@ -7,6 +7,7 @@ class ScrabbleGame {
     this.network = new NetworkManager(this);
 
     this.mode = 'WWF'; // 'WWF' or 'SCRABBLE'
+    this.boardSize = 15; // Dynamic board dimension (NxN)
     this.board = Array(15).fill(null).map(() => Array(15).fill(null));
     this.tileBag = [];
     this.players = [];
@@ -232,10 +233,13 @@ class ScrabbleGame {
       { name: 'Player 1', isBot: false }
     ],
     mode = 'WWF',
-    timerMinutes = 0
+    timerMinutes = 0,
+    boardSize = 15
   } = {}) {
     this.mode = mode;
-    this.board = Array(15).fill(null).map(() => Array(15).fill(null));
+    this.boardSize = Math.max(5, Math.min(100, parseInt(boardSize) || 15));
+    const N = this.boardSize;
+    this.board = Array(N).fill(null).map(() => Array(N).fill(null));
     this.consecutivePasses = 0;
     this.gameOver = false;
     this.moveHistory = [];
@@ -249,7 +253,11 @@ class ScrabbleGame {
       '#00bcd4', '#ff5722', '#8bc34a', '#3f51b5', '#e040fb'
     ];
     this.players = playerConfigs.slice(0, 10).map((cfg, idx) => {
-      const rack = this.drawTiles(this.config.RACK_SIZE);
+      // Try restoring persisted rack for rejoining players
+      let rack = this.restorePlayerSnapshot(cfg.id);
+      if (!rack || rack.length === 0) {
+        rack = this.drawTiles(this.config.RACK_SIZE);
+      }
       const cleanName = (cfg.name || ('Player ' + (idx + 1))).replace(' (Host)', '').replace(' (You)', '').trim();
       return {
         id: cfg.id || (idx === 0 && this.network ? this.network.playerId : ('p_' + (idx + 1))),
@@ -265,7 +273,7 @@ class ScrabbleGame {
       };
     });
 
-    console.log('[Game] Started in ' + this.mode + ' mode with ' + this.players.length + ' players. Bag: ' + this.tileBag.length);
+    console.log('[Game] Started in ' + this.mode + ' ' + N + 'x' + N + ' mode with ' + this.players.length + ' players. Bag: ' + this.tileBag.length);
 
     this.startTurnTimer();
     this.notifyUpdate();
@@ -317,7 +325,7 @@ class ScrabbleGame {
     if (this.gameOver) return { valid: false, error: 'The game has ended.' };
 
     const player = this.getCurrentPlayer();
-    const res = this.rules.validateMove(this.board, newTiles, this.mode);
+    const res = this.rules.validateMove(this.board, newTiles, this.mode, this.boardSize);
 
     if (!res.valid) {
       AUDIO.playBuzz();
@@ -465,6 +473,12 @@ class ScrabbleGame {
 
   advanceTurn() {
     if (this.players.length === 0) return;
+
+    // Persist every player's state so rejoining players restore their rack/score
+    for (const p of this.players) {
+      this.savePlayerSnapshot(p);
+    }
+
     this.currentTurnIndex = (this.currentTurnIndex + 1) % this.players.length;
 
     const hasOnline = this.players.some(p => !p.isOffline);
@@ -603,9 +617,37 @@ class ScrabbleGame {
     return counts;
   }
 
+  // ── Player Snapshot Persistence ─────────────────────────────────────────
+  // Save each player's rack to localStorage so they can rejoin mid-game
+  savePlayerSnapshot(player) {
+    if (!player || !player.id) return;
+    try {
+      const data = { rack: player.rack, score: player.score, name: player.name, savedAt: Date.now() };
+      localStorage.setItem('wwf_player_snap_' + player.id, JSON.stringify(data));
+    } catch (e) {}
+  }
+
+  restorePlayerSnapshot(playerId) {
+    if (!playerId) return null;
+    try {
+      const raw = localStorage.getItem('wwf_player_snap_' + playerId);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      // Only restore recent snapshots (within last 24h)
+      if (Date.now() - data.savedAt > 86400000) return null;
+      return data.rack || null;
+    } catch (e) { return null; }
+  }
+
+  clearPlayerSnapshot(playerId) {
+    try { localStorage.removeItem('wwf_player_snap_' + playerId); } catch (e) {}
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   serializeState() {
     return {
       board: this.board,
+      boardSize: this.boardSize,
       players: this.players,
       currentTurnIndex: this.currentTurnIndex,
       mode: this.mode,
@@ -618,6 +660,7 @@ class ScrabbleGame {
   applyFullState(state) {
     if (!state) return;
     this.board = state.board || this.board;
+    if (state.boardSize) this.boardSize = state.boardSize;
 
     if (state.players && state.players.length > 0) {
       this.players = state.players;
@@ -649,6 +692,7 @@ class ScrabbleGame {
   applyRemoteMove(payload) {
     if (!payload || !payload.newTiles) return;
     for (const t of payload.newTiles) {
+      if (!this.board[t.r]) this.board[t.r] = [];
       this.board[t.r][t.c] = {
         letter: t.letter,
         points: t.points,

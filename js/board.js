@@ -12,22 +12,34 @@ class BoardController {
     this.initEvents();
   }
 
-  // Render 15x15 board
+  // Render NxN board dynamically based on game.boardSize
   renderBoard() {
     const boardEl = this.elements.boardEl;
     if (!boardEl) return;
     boardEl.innerHTML = '';
 
-    const boardLayout = this.game.mode === 'WWF' ? this.game.config.WWF_BOARD : this.game.config.SCRABBLE_BOARD;
+    const N = this.game.boardSize || 15;
+    const center = Math.floor(N / 2);
 
-    for (let r = 0; r < 15; r++) {
-      for (let c = 0; c < 15; c++) {
+    // Get appropriate board layout
+    let boardLayout;
+    if (N === 15) {
+      boardLayout = this.game.mode === 'WWF' ? this.game.config.WWF_BOARD : this.game.config.SCRABBLE_BOARD;
+    } else {
+      boardLayout = this.game.config.generateBoardLayout(N);
+    }
+
+    // Apply CSS grid sizing
+    this.applyBoardSize(N);
+
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
         const cell = document.createElement('div');
         cell.className = 'board-cell';
         cell.dataset.r = r;
         cell.dataset.c = c;
 
-        const existing = this.game.board[r][c];
+        const existing = this.game.board[r] && this.game.board[r][c];
         const staged = this.stagedTiles.get(r + ',' + c);
 
         // Check if an opponent is actively spelling / staging a tile here
@@ -52,7 +64,6 @@ class BoardController {
         }
 
         if (existing || staged || remoteStaged) {
-          // If square has a tile (staged, remote, or permanent), do not render background multiplier/star icon!
           cell.classList.add('has-tile');
           const tile = existing || staged || remoteStaged;
           const isStaged = !existing && !!staged;
@@ -65,7 +76,7 @@ class BoardController {
           cell.appendChild(tileEl);
         } else {
           // Only show multiplier labels or star when cell is empty
-          const mult = boardLayout[r][c];
+          const mult = boardLayout[r] ? boardLayout[r][c] : '.';
           if (mult === 'TW') {
             cell.classList.add('cell-tw');
             cell.innerHTML = '<span class="mult-label">TW</span><span class="mult-sub">TRIPLE WORD</span>';
@@ -87,6 +98,36 @@ class BoardController {
         boardEl.appendChild(cell);
       }
     }
+  }
+
+  // Apply board size CSS custom properties for dynamic grid sizing
+  applyBoardSize(N) {
+    const boardEl = this.elements.boardEl;
+    if (!boardEl) return;
+
+    // Calculate an appropriate cell size based on board dimension
+    // For very large boards, cells get smaller; for small boards, larger
+    let cellPx;
+    if (N <= 11) cellPx = 40;
+    else if (N <= 15) cellPx = 36;
+    else if (N <= 20) cellPx = 30;
+    else if (N <= 25) cellPx = 24;
+    else if (N <= 35) cellPx = 18;
+    else cellPx = Math.max(10, Math.floor(600 / N));
+
+    // Clamp to viewport: at most (100vw - 64px) / N or (100vh - 280px) / N
+    const maxFromVW = Math.floor((window.innerWidth  - 64)  / N);
+    const maxFromVH = Math.floor((window.innerHeight - 280) / N);
+    cellPx = Math.min(cellPx, maxFromVW, maxFromVH);
+    cellPx = Math.max(8, cellPx); // Never go below 8px
+
+    boardEl.style.setProperty('--board-cols', N);
+    boardEl.style.setProperty('--board-rows', N);
+    boardEl.style.gridTemplateColumns = 'repeat(' + N + ', ' + cellPx + 'px)';
+    boardEl.style.gridTemplateRows    = 'repeat(' + N + ', ' + cellPx + 'px)';
+
+    // Write --cell-size on :root so rack tiles & font sizes scale too
+    document.documentElement.style.setProperty('--cell-size', cellPx + 'px');
   }
 
   // Create wood tile DOM element
@@ -489,7 +530,7 @@ class BoardController {
     }
 
     const stagedArray = Array.from(this.stagedTiles.values());
-    const res = this.game.rules.validateMove(this.game.board, stagedArray, this.game.mode);
+    const res = this.game.rules.validateMove(this.game.board, stagedArray, this.game.mode, this.game.boardSize || 15);
 
     if (res.valid) {
       previewEl.className = 'score-preview preview-valid';

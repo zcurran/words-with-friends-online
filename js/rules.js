@@ -1,4 +1,4 @@
-﻿// Words with Friends / Scrabble Rules & Scoring Engine
+// Words with Friends / Scrabble Rules & Scoring Engine
 class RulesEngine {
   constructor(config = GAME_CONFIG, dictionary = DICTIONARY) {
     this.config = config;
@@ -6,32 +6,43 @@ class RulesEngine {
   }
 
   // Helper to get tile at (r, c) on board (combines existing board and newly placed tiles)
-  getTile(board, newTilesMap, r, c) {
-    if (r < 0 || r >= 15 || c < 0 || c >= 15) return null;
+  getTile(board, newTilesMap, r, c, N) {
+    if (r < 0 || r >= N || c < 0 || c >= N) return null;
     const key = r + ',' + c;
     if (newTilesMap.has(key)) return newTilesMap.get(key);
     return board[r][c] || null;
   }
 
   // Validate a move and calculate score
-  validateMove(board, newTiles, mode = 'WWF') {
+  // boardSize defaults to 15 for backwards compatibility
+  validateMove(board, newTiles, mode = 'WWF', boardSize = 15) {
+    const N = boardSize;
+    const center = Math.floor(N / 2);
+
     if (!newTiles || newTiles.length === 0) {
       return { valid: false, error: 'No tiles placed on the board.' };
     }
 
-    const boardLayout = mode === 'WWF' ? this.config.WWF_BOARD : this.config.SCRABBLE_BOARD;
+    // For 15x15 use pre-defined boards; otherwise use the generated layout
+    let boardLayout;
+    if (N === 15) {
+      boardLayout = mode === 'WWF' ? this.config.WWF_BOARD : this.config.SCRABBLE_BOARD;
+    } else {
+      boardLayout = this.config.generateBoardLayout(N);
+    }
+
     const bingoBonus = mode === 'WWF' ? this.config.BINGO_BONUS_WWF : this.config.BINGO_BONUS_SCRABBLE;
 
     // Check if board is currently empty (first move)
     let isBoardEmpty = true;
-    for (let r = 0; r < 15; r++) {
-      for (let c = 0; c < 15; c++) {
-        if (board[r][c]) {
+    outer:
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        if (board[r] && board[r][c]) {
           isBoardEmpty = false;
-          break;
+          break outer;
         }
       }
-      if (!isBoardEmpty) break;
     }
 
     // Map new tiles by coordinate
@@ -41,10 +52,10 @@ class RulesEngine {
     for (const tile of newTiles) {
       const r = tile.r;
       const c = tile.c;
-      if (r < 0 || r >= 15 || c < 0 || c >= 15) {
+      if (r < 0 || r >= N || c < 0 || c >= N) {
         return { valid: false, error: 'Tile placed outside board boundaries.' };
       }
-      if (board[r][c]) {
+      if (board[r] && board[r][c]) {
         return { valid: false, error: 'Square (' + r + ', ' + c + ') is already occupied.' };
       }
       const key = r + ',' + c;
@@ -53,12 +64,12 @@ class RulesEngine {
       }
       newTilesMap.set(key, { ...tile, isNew: true });
 
-      if (r === 7 && c === 7) {
+      if (r === center && c === center) {
         coversCenter = true;
       }
     }
 
-    // First move must cover center (7, 7)
+    // First move must cover center
     if (isBoardEmpty) {
       if (!coversCenter) {
         return { valid: false, error: 'The first word must cover the center star (★) square.' };
@@ -81,8 +92,10 @@ class RulesEngine {
     let isHorizontal = sameRow;
     if (newTiles.length === 1) {
       const r = firstTile.r, c = firstTile.c;
-      const hasHorizontalAdj = (c > 0 && board[r][c-1]) || (c < 14 && board[r][c+1]);
-      const hasVerticalAdj = (r > 0 && board[r-1][c]) || (r < 14 && board[r+1][c]);
+      const hasHorizontalAdj = (c > 0 && this.getTile(board, newTilesMap, r, c-1, N)) ||
+                               (c < N-1 && this.getTile(board, newTilesMap, r, c+1, N));
+      const hasVerticalAdj   = (r > 0 && this.getTile(board, newTilesMap, r-1, c, N)) ||
+                               (r < N-1 && this.getTile(board, newTilesMap, r+1, c, N));
       if (hasHorizontalAdj && !hasVerticalAdj) isHorizontal = true;
       else if (hasVerticalAdj && !hasHorizontalAdj) isHorizontal = false;
       else isHorizontal = true;
@@ -95,7 +108,7 @@ class RulesEngine {
       const minCol = Math.min(...cols);
       const maxCol = Math.max(...cols);
       for (let c = minCol; c <= maxCol; c++) {
-        if (!this.getTile(board, newTilesMap, r, c)) {
+        if (!this.getTile(board, newTilesMap, r, c, N)) {
           return { valid: false, error: 'Tiles placed in a row cannot have empty gaps between them.' };
         }
       }
@@ -105,7 +118,7 @@ class RulesEngine {
       const minRow = Math.min(...rows);
       const maxRow = Math.max(...rows);
       for (let r = minRow; r <= maxRow; r++) {
-        if (!this.getTile(board, newTilesMap, r, c)) {
+        if (!this.getTile(board, newTilesMap, r, c, N)) {
           return { valid: false, error: 'Tiles placed in a column cannot have empty gaps between them.' };
         }
       }
@@ -122,8 +135,8 @@ class RulesEngine {
           [r, c - 1], [r, c + 1]
         ];
         for (const [nr, nc] of neighbors) {
-          if (nr >= 0 && nr < 15 && nc >= 0 && nc < 15) {
-            if (board[nr][nc] && !newTilesMap.has(nr + ',' + nc)) {
+          if (nr >= 0 && nr < N && nc >= 0 && nc < N) {
+            if (board[nr] && board[nr][nc] && !newTilesMap.has(nr + ',' + nc)) {
               connectsToExisting = true;
               break;
             }
@@ -146,29 +159,29 @@ class RulesEngine {
     if (isHorizontal) {
       const r = firstTile.r;
       let startCol = Math.min(...newTiles.map(t => t.c));
-      while (startCol > 0 && this.getTile(board, newTilesMap, r, startCol - 1)) {
+      while (startCol > 0 && this.getTile(board, newTilesMap, r, startCol - 1, N)) {
         startCol--;
       }
       let endCol = Math.max(...newTiles.map(t => t.c));
-      while (endCol < 14 && this.getTile(board, newTilesMap, r, endCol + 1)) {
+      while (endCol < N-1 && this.getTile(board, newTilesMap, r, endCol + 1, N)) {
         endCol++;
       }
       for (let c = startCol; c <= endCol; c++) {
-        const t = this.getTile(board, newTilesMap, r, c);
+        const t = this.getTile(board, newTilesMap, r, c, N);
         mainWordTiles.push({ ...t, r, c });
       }
     } else {
       const c = firstTile.c;
       let startRow = Math.min(...newTiles.map(t => t.r));
-      while (startRow > 0 && this.getTile(board, newTilesMap, startRow - 1, c)) {
+      while (startRow > 0 && this.getTile(board, newTilesMap, startRow - 1, c, N)) {
         startRow--;
       }
       let endRow = Math.max(...newTiles.map(t => t.r));
-      while (endRow < 14 && this.getTile(board, newTilesMap, endRow + 1, c)) {
+      while (endRow < N-1 && this.getTile(board, newTilesMap, endRow + 1, c, N)) {
         endRow++;
       }
       for (let r = startRow; r <= endRow; r++) {
-        const t = this.getTile(board, newTilesMap, r, c);
+        const t = this.getTile(board, newTilesMap, r, c, N);
         mainWordTiles.push({ ...t, r, c });
       }
     }
@@ -189,34 +202,37 @@ class RulesEngine {
       const r = tile.r;
       const c = tile.c;
       let crossTiles = [];
+
       if (isHorizontal) {
+        // Cross word is vertical through this tile
         let startR = r;
-        while (startR > 0 && this.getTile(board, newTilesMap, startR - 1, c)) {
+        while (startR > 0 && this.getTile(board, newTilesMap, startR - 1, c, N)) {
           startR--;
         }
         let endR = r;
-        while (endR < 14 && this.getTile(board, newTilesMap, endR + 1, c)) {
+        while (endR < N-1 && this.getTile(board, newTilesMap, endR + 1, c, N)) {
           endR++;
         }
         if (startR !== endR) {
           for (let currR = startR; currR <= endR; currR++) {
-            const t = this.getTile(board, newTilesMap, currR, c);
-            crossTiles.push({ ...t, r: currR, c });
+            const t = this.getTile(board, newTilesMap, currR, c, N);
+            crossTiles.push({ ...t, r: currR, c });  // FIX: was `r: currC` (wrong axis bug)
           }
         }
       } else {
+        // Cross word is horizontal through this tile
         let startC = c;
-        while (startC > 0 && this.getTile(board, newTilesMap, r, startC - 1)) {
+        while (startC > 0 && this.getTile(board, newTilesMap, r, startC - 1, N)) {
           startC--;
         }
         let endC = c;
-        while (endC < 14 && this.getTile(board, newTilesMap, r, endC + 1)) {
+        while (endC < N-1 && this.getTile(board, newTilesMap, r, endC + 1, N)) {
           endC++;
         }
         if (startC !== endC) {
           for (let currC = startC; currC <= endC; currC++) {
-            const t = this.getTile(board, newTilesMap, r, currC);
-            crossTiles.push({ ...t, r: currC, c: currC });
+            const t = this.getTile(board, newTilesMap, r, currC, N);
+            crossTiles.push({ ...t, r, c: currC });
           }
         }
       }
@@ -268,7 +284,7 @@ class RulesEngine {
         const basePoints = t.isBlank ? 0 : (tileConfig[t.letter] ? tileConfig[t.letter].points : 0);
 
         if (isNew) {
-          const squareType = boardLayout[t.r][t.c];
+          const squareType = boardLayout[t.r] ? boardLayout[t.r][t.c] : '.';
           let letterMultiplier = 1;
 
           if (squareType === 'DL') letterMultiplier = 2;

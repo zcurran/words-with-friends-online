@@ -76,18 +76,94 @@ body {
   gap: 12px;
 }
 
+/* Hamburger button — hidden on desktop */
+.hamburger-btn {
+  display: none;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #e2e8f0;
+  font-size: 22px;
+  line-height: 1;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.hamburger-btn:hover { background: rgba(255,255,255,0.18); }
+
 @media (max-width: 768px) {
   .app-header {
-    justify-content: center;
-    padding: 10px 12px;
+    padding: 10px 14px;
+    flex-wrap: nowrap; /* keep brand + hamburger on one line */
+    justify-content: space-between;
   }
   .header-controls {
     justify-content: center;
     gap: 8px;
+    flex-wrap: wrap;
   }
   .header-btn {
     padding: 6px 10px;
     font-size: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Show hamburger, hide controls by default */
+  .hamburger-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .header-controls {
+    display: none;           /* hidden until toggled */
+    position: absolute;
+    top: 58px;
+    left: 0;
+    right: 0;
+    background: rgba(18, 24, 38, 0.97);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    padding: 14px 16px 18px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    z-index: 200;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .header-controls.header-controls-open {
+    display: flex;
+  }
+  /* Make each control full-width on mobile */
+  .header-controls .header-btn,
+  .header-controls .bag-badge,
+  .header-controls .timer-badge {
+    width: 100%;
+    justify-content: center;
+    font-size: 14px;
+    padding: 10px 14px;
+  }
+  /* Volume slider row — full width */
+  .header-controls > div {
+    width: 100%;
+    justify-content: center;
+  }
+  .header-controls input[type="range"] {
+    flex: 1;
+    max-width: 200px;
+  }
+  /* App header stays compact */
+  .app-header {
+    padding: 8px 12px;
+    position: sticky;
+    top: 0;
+  }
+  .brand-name {
+    font-size: 16px;
+  }
+  .brand-mode-badge {
+    display: none; /* show in controls panel instead */
   }
 }
 

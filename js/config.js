@@ -38,6 +38,17 @@ const GAME_CONFIG = {
     ['TW', '.',  '.',  'DL', '.',  '.',  '.',  'TW', '.',  '.',  '.',  'DL', '.',  '.',  'TW']
   ],
 
+  // Available board size presets
+  BOARD_SIZES: [
+    { label: '11×11 (Mini)',    value: 11 },
+    { label: '13×13',          value: 13 },
+    { label: '15×15 (Standard)', value: 15 },
+    { label: '17×17',          value: 17 },
+    { label: '20×20',          value: 20 },
+    { label: '25×25 (Large)',  value: 25 },
+    { label: '50×50 (Mega)',   value: 50 }
+  ],
+
   // Words with Friends tile specifications (104 total)
   WWF_TILES: {
     'A': { count: 9,  points: 1 },
@@ -105,6 +116,83 @@ const GAME_CONFIG = {
   RACK_SIZE: 7,
   MAX_PLAYERS: 10,
   MIN_PLAYERS: 1
+};
+
+/**
+ * Generate a premium-square board layout for any board size N×N.
+ * Scales the standard 15×15 WWF-style pattern proportionally.
+ * Always odd sizes get a center star; even sizes get it at (N/2, N/2).
+ */
+GAME_CONFIG.generateBoardLayout = function(N) {
+  const layout = Array(N).fill(null).map(() => Array(N).fill('.'));
+  const center = Math.floor(N / 2);
+
+  // Place center star
+  layout[center][center] = 'STAR';
+
+  if (N < 5) return layout; // Too small for premium squares
+
+  // Scale factor relative to canonical 15×15 half-board (7 units from center)
+  // We use fractional positions and round to get evenly spread premiums
+  const half = N / 2;
+
+  // Helper: place a premium symmetrically (4-fold) from center offsets
+  function place(dr, dc, type) {
+    const positions = [
+      [center + dr, center + dc],
+      [center - dr, center + dc],
+      [center + dr, center - dc],
+      [center - dr, center - dc]
+    ];
+    for (const [r, c] of positions) {
+      if (r >= 0 && r < N && c >= 0 && c < N && !(r === center && c === center)) {
+        layout[r][c] = type;
+      }
+    }
+  }
+
+  // --- Triple Word (TW) — corners and mid-edges ---
+  // Corners
+  layout[0][0] = 'TW';
+  layout[0][N-1] = 'TW';
+  layout[N-1][0] = 'TW';
+  layout[N-1][N-1] = 'TW';
+  // Mid-edge TW (halfway between corner and center on each edge)
+  const twMid = Math.round(half / 2);
+  place(Math.round(-half + twMid), 0, 'TW');
+  place(0, Math.round(-half + twMid), 'TW');
+
+  // --- Double Word (DW) — diagonal from center ---
+  const dwDist = Math.max(1, Math.round(half * 0.27));
+  for (let d = 1; d <= Math.round(half * 0.6); d += dwDist) {
+    place(-d, -d, 'DW');
+  }
+
+  // --- Triple Letter (TL) ---
+  const tlR = Math.round(half * 0.40);
+  const tlC = Math.round(half * 0.73);
+  place(-tlR, -tlC, 'TL');
+  place(-tlC, -tlR, 'TL');
+
+  // --- Double Letter (DL) ---
+  const dlR1 = Math.round(half * 0.20);
+  const dlC1 = Math.round(half * 0.53);
+  place(-dlR1, -dlC1, 'DL');
+  place(-dlC1, -dlR1, 'DL');
+
+  // Also DL on diagonal near TL
+  const dlR2 = Math.round(half * 0.47);
+  const dlC2 = Math.round(half * 0.27);
+  if (dlR2 !== dlC2) {
+    place(-dlR2, -dlC2, 'DL');
+  }
+
+  // Edge DL (near midpoints of edges)
+  const dlEdge = Math.round(half * 0.20);
+  place(0, -Math.round(half * 0.87), 'DL');
+  place(-Math.round(half * 0.87), 0, 'DL');
+
+  return layout;
 };
 
 if (typeof module !== 'undefined' && module.exports) {

@@ -455,7 +455,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (elements.modeDisplayEl) {
-      elements.modeDisplayEl.innerText = gameState.mode + ' 15x15';
+      const N = gameState.boardSize || 15;
+      elements.modeDisplayEl.innerText = gameState.mode + ' ' + N + '×' + N;
     }
 
     if (elements.timerBadgeEl) {
@@ -671,6 +672,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const timerVal = timerSelect ? parseInt(timerSelect.value) : 0;
       const passInp = document.getElementById('lobby-password-input');
       const password = passInp ? passInp.value.trim() : null;
+      const boardSizeSelect = document.getElementById('lobby-board-size-select');
+      const boardSize = boardSizeSelect ? parseInt(boardSizeSelect.value) : 15;
 
       updateRoomUI(currentRoomCode, true, !!password);
       document.getElementById('lobby-modal').classList.add('hidden');
@@ -678,7 +681,8 @@ document.addEventListener('DOMContentLoaded', () => {
       game.startNewGame({
         playerConfigs: lobbyPlayers,
         mode: mode,
-        timerMinutes: timerVal
+        timerMinutes: timerVal,
+        boardSize: boardSize
       });
     };
   }
@@ -767,6 +771,8 @@ document.addEventListener('DOMContentLoaded', () => {
     btnStartLocal.onclick = () => {
       const select = document.getElementById('local-player-count-select');
       const count = select ? parseInt(select.value) : 2;
+      const boardSizeSelect = document.getElementById('local-board-size-select');
+      const boardSize = boardSizeSelect ? parseInt(boardSizeSelect.value) : 15;
       const configs = [];
 
       for (let i = 1; i <= count; i++) {
@@ -783,7 +789,8 @@ document.addEventListener('DOMContentLoaded', () => {
       game.startNewGame({
         playerConfigs: configs,
         mode: 'WWF',
-        timerMinutes: 0
+        timerMinutes: 0,
+        boardSize: boardSize
       });
     };
   }
@@ -958,8 +965,30 @@ document.addEventListener('DOMContentLoaded', () => {
       { id: game.network.playerId, name: localPlayerName, isBot: false }
     ],
     mode: 'WWF',
-    timerMinutes: 0
+    timerMinutes: 0,
+    boardSize: 15
   });
+
+  // 11b. Hamburger menu toggle for mobile
+  const hamburgerBtn = document.getElementById('btn-hamburger');
+  const headerControls = document.getElementById('header-controls');
+  if (hamburgerBtn && headerControls) {
+    hamburgerBtn.onclick = () => {
+      const expanded = hamburgerBtn.getAttribute('aria-expanded') === 'true';
+      hamburgerBtn.setAttribute('aria-expanded', !expanded);
+      headerControls.classList.toggle('header-controls-open', !expanded);
+    };
+    // Close controls when clicking outside on mobile
+    document.addEventListener('click', (e) => {
+      if (window.innerWidth <= 640 &&
+          !headerControls.contains(e.target) &&
+          e.target !== hamburgerBtn &&
+          !hamburgerBtn.contains(e.target)) {
+        hamburgerBtn.setAttribute('aria-expanded', 'false');
+        headerControls.classList.remove('header-controls-open');
+      }
+    });
+  }
 
   // 12. Async load full ENABLE1 dictionary in background
   DICTIONARY.init('data/enable1.txt');
