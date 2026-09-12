@@ -105,29 +105,65 @@ class BoardController {
     const boardEl = this.elements.boardEl;
     if (!boardEl) return;
 
-    // Calculate an appropriate cell size based on board dimension
-    // For very large boards, cells get smaller; for small boards, larger
-    let cellPx;
-    if (N <= 11) cellPx = 40;
-    else if (N <= 15) cellPx = 36;
-    else if (N <= 20) cellPx = 30;
-    else if (N <= 25) cellPx = 24;
-    else if (N <= 35) cellPx = 18;
-    else cellPx = Math.max(10, Math.floor(600 / N));
+    // ─── Calculate available space ────────────────────────────────────────
+    // Available width: viewport minus sidebar (280px) minus padding/gap (56px)
+    // Available height: viewport minus header (~62px) minus rack (~100px) minus padding (32px)
+    const sidebarW  = window.innerWidth >= 1024 ? 300 : 0;
+    const availW    = window.innerWidth  - sidebarW - 56;
+    const availH    = window.innerHeight - 62 - 100 - 32;
 
-    // Clamp to viewport: at most (100vw - 64px) / N or (100vh - 280px) / N
-    const maxFromVW = Math.floor((window.innerWidth  - 64)  / N);
-    const maxFromVH = Math.floor((window.innerHeight - 280) / N);
-    cellPx = Math.min(cellPx, maxFromVW, maxFromVH);
-    cellPx = Math.max(8, cellPx); // Never go below 8px
+    // Target the largest square that fits in the available space
+    const boardAreaPx = Math.min(availW, availH);
 
-    boardEl.style.setProperty('--board-cols', N);
-    boardEl.style.setProperty('--board-rows', N);
+    // Gap between cells (scales down for big boards)
+    const gap = N > 25 ? 1 : 2;
+
+    // Cell size = (boardArea - 2*padding - (N-1)*gap) / N
+    const padding = N > 25 ? 4 : 10;
+    let cellPx = Math.floor((boardAreaPx - 2 * padding - (N - 1) * gap) / N);
+
+    // Enforce sensible min/max per board size
+    const maxCell = N <= 11 ? 56 : N <= 15 ? 46 : N <= 20 ? 36 : N <= 25 ? 28 : N <= 35 ? 22 : 16;
+    const minCell = N <= 15 ? 22 : N <= 25 ? 14 : 8;
+    cellPx = Math.min(cellPx, maxCell);
+    cellPx = Math.max(cellPx, minCell);
+
+    // ─── Write CSS custom properties ─────────────────────────────────────
+    // --cell-size  → drives all em-based font sizes in board.css
+    // --cell-gap   → gap between cells
+    // --board-pad  → inner padding of the board frame
+    document.documentElement.style.setProperty('--cell-size', cellPx + 'px');
+    document.documentElement.style.setProperty('--cell-gap', gap + 'px');
+    document.documentElement.style.setProperty('--board-pad', padding + 'px');
+
+    // ─── Apply grid layout ────────────────────────────────────────────────
+    boardEl.style.gap = gap + 'px';
+    boardEl.style.padding = padding + 'px';
     boardEl.style.gridTemplateColumns = 'repeat(' + N + ', ' + cellPx + 'px)';
     boardEl.style.gridTemplateRows    = 'repeat(' + N + ', ' + cellPx + 'px)';
 
-    // Write --cell-size on :root so rack tiles & font sizes scale too
-    document.documentElement.style.setProperty('--cell-size', cellPx + 'px');
+    // ─── Board size category for CSS targeting ────────────────────────────
+    // Drives which labels/text are shown
+    boardEl.dataset.boardSize =
+      N <= 11 ? 'xl' :
+      N <= 15 ? 'lg' :
+      N <= 20 ? 'md' :
+      N <= 30 ? 'sm' : 'xs';
+
+    // ─── Register resize handler (once) ──────────────────────────────────
+    if (!this._resizeRegistered) {
+      this._resizeRegistered = true;
+      let resizeTimer;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          if (this.game && this.game.boardSize) {
+            this.applyBoardSize(this.game.boardSize);
+            this.renderBoard();
+          }
+        }, 150);
+      });
+    }
   }
 
   // Create wood tile DOM element

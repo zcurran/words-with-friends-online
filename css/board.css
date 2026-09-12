@@ -1,59 +1,70 @@
-/* Words with Friends 15x15 Board & Tile Styling */
+/* Words with Friends — Dynamic Board & Tile Styling
+   All font sizes scale via --cell-size (written by applyBoardSize() in board.js)
+   Board label visibility is controlled by data-board-size attribute:
+     xl  = ≤11×11  (cells ~40-56px)
+     lg  = ≤15×15  (cells ~32-46px)
+     md  = ≤20×20  (cells ~22-36px)
+     sm  = ≤30×30  (cells ~14-22px)
+     xs  = >30×30  (cells ~8-16px)
+*/
 
 :root {
-  --board-bg: #e8e2d5;
-  --grid-line: #cfc7b6;
-  --tw-color: #f4511e;
-  --dw-color: #e91e63;
-  --tl-color: #2e7d32;
-  --dl-color: #0288d1;
+  --board-bg:   #e8e2d5;
+  --grid-line:  #cfc7b6;
+  --tw-color:   #f4511e;
+  --dw-color:   #e91e63;
+  --tl-color:   #2e7d32;
+  --dl-color:   #0288d1;
   --star-color: #8e24aa;
   --tile-bg-top: #fff8e1;
   --tile-bg-bot: #ffecb3;
   --tile-border: #d7ccc8;
-  --tile-text: #2c2523;
+  --tile-text:  #2c2523;
   --tile-shadow: rgba(0, 0, 0, 0.25);
-  /* --cell-size is written dynamically by applyBoardSize() in board.js */
+  /* Written dynamically by applyBoardSize() */
   --cell-size: 36px;
+  --cell-gap:  2px;
+  --board-pad: 10px;
 }
 
-@media (max-width: 768px) {
-  :root {
-    --cell-size: 24px;
-  }
+/* ─── Board Container ──────────────────────────────────────────────────────── */
+.board-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
 }
 
 .board-container {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 2px;
-  overflow: auto;  /* allows scrolling for large boards like 50x50 */
-  max-height: calc(100vh - 220px);
-  max-width: 100%;
+  width: 100%;
+  /* Large boards can scroll horizontally if needed */
+  overflow: auto;
 }
 
 #scrabble-board {
-  /* grid-template-columns & rows are set dynamically by applyBoardSize() in board.js */
   display: grid;
-  gap: 2px;
+  /* columns/rows/gap/padding are all set dynamically by applyBoardSize() */
   background-color: #3e2723;
-  padding: 5px;
   border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 2px 4px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55), inset 0 2px 4px rgba(255, 255, 255, 0.08);
   user-select: none;
-  flex-shrink: 0; /* prevent grid from collapsing */
+  flex-shrink: 0;
 }
 
+/* ─── Individual Cells ─────────────────────────────────────────────────────── */
 .board-cell {
   background-color: var(--board-bg);
-  border-radius: 4px;
+  border-radius: 3px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   position: relative;
-  width: var(--cell-size);
+  width:  var(--cell-size);
   height: var(--cell-size);
   cursor: pointer;
   transition: filter 0.1s ease;
@@ -61,73 +72,73 @@
   box-sizing: border-box;
 }
 
-.board-cell:hover {
-  filter: brightness(1.06);
-}
+.board-cell:hover { filter: brightness(1.08); }
 
 .board-cell.drag-over {
   background-color: #fff9c4 !important;
   outline: 2px solid #ff9800;
 }
 
-/* Multiplier Badges */
-.cell-tw {
-  background: linear-gradient(135deg, #ff7043, var(--tw-color)) !important;
-  color: #fff;
-}
+/* ─── Multiplier Square Colors ─────────────────────────────────────────────── */
+.cell-tw   { background: linear-gradient(135deg, #ff7043, var(--tw-color)) !important; color: #fff; }
+.cell-dw   { background: linear-gradient(135deg, #f06292, var(--dw-color)) !important; color: #fff; }
+.cell-tl   { background: linear-gradient(135deg, #66bb6a, var(--tl-color)) !important; color: #fff; }
+.cell-dl   { background: linear-gradient(135deg, #4fc3f7, var(--dl-color)) !important; color: #fff; }
+.cell-star { background: linear-gradient(135deg, #ab47bc, var(--star-color)) !important; color: #ffd54f; }
 
-.cell-dw {
-  background: linear-gradient(135deg, #f06292, var(--dw-color)) !important;
-  color: #fff;
-}
-
-.cell-tl {
-  background: linear-gradient(135deg, #66bb6a, var(--tl-color)) !important;
-  color: #fff;
-}
-
-.cell-dl {
-  background: linear-gradient(135deg, #4fc3f7, var(--dl-color)) !important;
-  color: #fff;
-}
-
-.cell-star {
-  background: linear-gradient(135deg, #ab47bc, var(--star-color)) !important;
-  color: #ffd54f;
-}
-
+/* ─── Multiplier Labels ────────────────────────────────────────────────────── */
 .mult-label {
-  font-size: calc(var(--cell-size) * 0.34);
+  font-size: calc(var(--cell-size) * 0.36);
   font-weight: 900;
   line-height: 1;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   pointer-events: none;
+  letter-spacing: -0.5px;
 }
 
+/* Sub-label: "TRIPLE WORD" etc — hidden on small/medium cells */
 .mult-sub {
-  font-size: calc(var(--cell-size) * 0.16);
+  font-size: calc(var(--cell-size) * 0.17);
   font-weight: 700;
   letter-spacing: -0.2px;
   opacity: 0.9;
   text-transform: uppercase;
   display: block;
   pointer-events: none;
+  white-space: nowrap;
 }
 
-@media (max-width: 768px) {
-  .mult-sub {
-    display: none;
-  }
+/* Hide sub-label when cells are medium (≤20×20) */
+#scrabble-board[data-board-size="md"] .mult-sub,
+#scrabble-board[data-board-size="sm"] .mult-sub,
+#scrabble-board[data-board-size="xs"] .mult-sub {
+  display: none;
 }
 
-.star-icon {
+/* On xs boards (50×50), also slightly scale up the main label relative
+   to cell so it stays visible */
+#scrabble-board[data-board-size="xs"] .mult-label {
+  font-size: calc(var(--cell-size) * 0.50);
+  letter-spacing: -1px;
+}
+
+/* On xs boards, hide the label text and show color only via a dot */
+#scrabble-board[data-board-size="xs"] .mult-label {
   font-size: calc(var(--cell-size) * 0.55);
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+
+/* Star icon */
+.star-icon {
+  font-size: calc(var(--cell-size) * 0.60);
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
   pointer-events: none;
   line-height: 1;
 }
+#scrabble-board[data-board-size="xs"] .star-icon {
+  font-size: calc(var(--cell-size) * 0.80);
+}
 
-/* Wood Tiles */
+/* ─── Wood Tiles ───────────────────────────────────────────────────────────── */
 .wood-tile {
   width: 94%;
   height: 94%;
@@ -144,50 +155,62 @@
   box-sizing: border-box;
 }
 
+/* Tile placed on the board */
 .board-cell .wood-tile {
   position: absolute;
-  top: 1px;
-  left: 1px;
-  width: calc(100% - 2px);
+  top: 1px; left: 1px;
+  width:  calc(100% - 2px);
   height: calc(100% - 2px);
   z-index: 10;
   margin: 0;
 }
 
-.wood-tile:active {
-  cursor: grabbing;
-}
+.wood-tile:active { cursor: grabbing; }
 
+/* Tile letter — scales with cell size */
 .wood-tile .tile-letter {
-  font-size: calc(var(--cell-size) * 0.52);
-  font-weight: 800;
+  font-size: calc(var(--cell-size) * 0.54);
+  font-weight: 900;
   color: var(--tile-text);
   font-family: 'Segoe UI', -apple-system, sans-serif;
-  margin-top: -1px;
   line-height: 1;
+  margin-top: -1px;
 }
 
+/* Tile point value — bottom-right corner */
 .wood-tile .tile-points {
   position: absolute;
   bottom: 1px;
   right: 2px;
-  font-size: calc(var(--cell-size) * 0.24);
+  font-size: calc(var(--cell-size) * 0.26);
   font-weight: 800;
   color: #6d4c41;
   line-height: 1;
 }
 
+/* Hide point value on very small cells */
+#scrabble-board[data-board-size="sm"] .tile-points,
+#scrabble-board[data-board-size="xs"] .tile-points {
+  display: none;
+}
+
+/* Staged (unplayed, on board from rack) */
 .staged-tile {
   outline: 2px solid #2e7d32;
   background: linear-gradient(180deg, #ffffff 0%, #fff9c4 100%) !important;
 }
 
-.blank-tile .tile-letter {
-  color: #1976d2;
-}
+/* Blank tile letter colour */
+.blank-tile .tile-letter { color: #1976d2; }
 
+/* Selected tile in swap modal */
 .wood-tile.selected {
   outline: 3px solid #ff9800;
   transform: translateY(-2px);
   box-shadow: 0 6px 14px rgba(255, 152, 0, 0.5);
+}
+
+/* Remote opponent's staged tile */
+.remote-staged-tile {
+  opacity: 0.88;
 }
