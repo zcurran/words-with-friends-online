@@ -30,12 +30,34 @@ class BoardController {
         const existing = this.game.board[r][c];
         const staged = this.stagedTiles.get(r + ',' + c);
 
-        if (existing || staged) {
-          // If square has a tile (staged or permanent), do not render background multiplier/star icon!
+        // Check if an opponent is actively spelling / staging a tile here
+        let remoteStaged = null;
+        if (!existing && !staged && this.game.remoteStagedPositions) {
+          for (const pid in this.game.remoteStagedPositions) {
+            const entry = this.game.remoteStagedPositions[pid];
+            if (entry && entry.tiles) {
+              const match = entry.tiles.find(t => t.r === r && t.c === c);
+              if (match) {
+                remoteStaged = {
+                  letter: match.letter,
+                  points: match.points,
+                  isBlank: !!match.isBlank,
+                  playerName: entry.playerName,
+                  playerColor: entry.playerColor
+                };
+                break;
+              }
+            }
+          }
+        }
+
+        if (existing || staged || remoteStaged) {
+          // If square has a tile (staged, remote, or permanent), do not render background multiplier/star icon!
           cell.classList.add('has-tile');
-          const tile = existing || staged;
-          const isStaged = !existing;
-          const tileEl = this.createTileElement(tile.letter, tile.points, isStaged, tile.isBlank);
+          const tile = existing || staged || remoteStaged;
+          const isStaged = !existing && !!staged;
+          const isRemote = !existing && !staged && !!remoteStaged;
+          const tileEl = this.createTileElement(tile.letter, tile.points, isStaged, tile.isBlank, isRemote, remoteStaged);
           if (isStaged) {
             tileEl.dataset.r = r;
             tileEl.dataset.c = c;
@@ -68,13 +90,19 @@ class BoardController {
   }
 
   // Create wood tile DOM element
-  createTileElement(letter, points, isStaged = false, isBlank = false) {
+  createTileElement(letter, points, isStaged = false, isBlank = false, isRemote = false, remoteInfo = null) {
     const tile = document.createElement('div');
-    tile.className = 'wood-tile' + (isStaged ? ' staged-tile' : '') + (isBlank ? ' blank-tile' : '');
-    tile.draggable = isStaged;
+    tile.className = 'wood-tile' + (isStaged ? ' staged-tile' : '') + (isBlank ? ' blank-tile' : '') + (isRemote ? ' remote-staged-tile' : '');
+    tile.draggable = isStaged && !isRemote;
 
     tile.innerHTML = '<span class="tile-letter">' + (letter ? letter.toUpperCase() : '') + '</span>' +
                      '<span class="tile-points">' + (isBlank ? 0 : points) + '</span>';
+
+    if (isRemote && remoteInfo) {
+      tile.style.boxShadow = `0 0 0 2px ${remoteInfo.playerColor || '#2196f3'}, 0 2px 6px rgba(0,0,0,0.4)`;
+      tile.style.opacity = '0.9';
+      tile.title = `Staged by ${remoteInfo.playerName || 'Opponent'}`;
+    }
 
     return tile;
   }

@@ -127,8 +127,20 @@ class NetworkManager {
       });
 
       this.socket.on('move_played', (data) => {
-        if (data.session && this.game && this.game.applyFullState) {
-          this.game.applyFullState(data.session);
+        console.log('[Network] move_played received:', data);
+        if (this.game) {
+          if (this.game.remoteStagedPositions && data.playerId) {
+            delete this.game.remoteStagedPositions[data.playerId];
+            if (this.game.onRemoteStagedChange) {
+              this.game.onRemoteStagedChange(this.game.remoteStagedPositions);
+            }
+          }
+          if (data.session && this.game.applyFullState) {
+            this.game.applyFullState(data.session);
+          }
+          if (data.isBingo) {
+            AUDIO.playScoreFanfare(true);
+          }
         }
       });
 

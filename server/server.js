@@ -22,6 +22,15 @@ const rootDir = path.resolve(__dirname, '..');
 
 // 1. Static Web Hosting for Frontend
 app.use(cors());
+
+// Prevent aggressive browser caching of static JS/CSS
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
 app.use(express.static(rootDir));
 
 // Health check endpoint
@@ -150,10 +159,74 @@ io.on('connection', (socket) => {
       const mode = data.mode || 'WWF';
       const timerMinutes = parseInt(data.timerMinutes) || 0;
 
+      let session = sessions.get(inviteCode);
+      if (session) {
+        // Room already exists: Reconnect host or keep existing game state safe
+        let hostPlayer = session.players.find(p => p.id === hostPlayerId || p.isHost);
+        if (hostPlayer) {
+          session.hostSocketId = socket.id;
+          hostPlayer.socketId = socket.id;
+          hostPlayer.isOffline = false;
+          if (hostName) hostPlayer.name = hostName;
+          socket.join(inviteCode);
+          socket.data = {
+            inviteCode: inviteCode,
+            playerId: hostPlayer.id,
+            playerName: hostPlayer.name,
+            isHost: true
+          };
+          console.log('[Room Reconnected]', inviteCode, 'by host:', hostPlayer.name);
+          return socket.emit('room_created', {
+            success: true,
+            inviteCode: inviteCode,
+            hasPassword: !!session.password,
+            session: serializeSession(session),
+            yourPlayerId: hostPlayer.id
+          });
+        } else {
+          // Another player called create_room with same code: attach as participant without wiping game
+          let existingPlayer = session.players.find(p => p.id === hostPlayerId);
+          if (!existingPlayer && session.players.length < 10) {
+            const seat = session.players.length;
+            existingPlayer = {
+              id: hostPlayerId,
+              name: hostName || ('Player ' + (seat + 1)),
+              color: PLAYER_PALETTE[seat % PLAYER_PALETTE.length],
+              score: 0,
+              rack: drawTiles(session.tileBag, 7),
+              isBot: false,
+              isHost: false,
+              seatIndex: seat,
+              isOffline: false,
+              socketId: socket.id,
+              lastSeen: Date.now()
+            };
+            session.players.push(existingPlayer);
+          }
+          socket.join(inviteCode);
+          socket.data = {
+            inviteCode: inviteCode,
+            playerId: existingPlayer ? existingPlayer.id : hostPlayerId,
+            playerName: hostName,
+            isHost: false
+          };
+          console.log('[Room Connected Existing]', inviteCode, 'by:', hostName);
+          socket.emit('room_created', {
+            success: true,
+            inviteCode: inviteCode,
+            hasPassword: !!session.password,
+            session: serializeSession(session),
+            yourPlayerId: socket.data.playerId
+          });
+          io.to(inviteCode).emit('sync_state', serializeSession(session));
+          return;
+        }
+      }
+
       const tileBag = buildTileBag(mode);
       const hostRack = drawTiles(tileBag, 7);
 
-      const session = {
+      session = {
         inviteCode: inviteCode,
         password: password,
         hasPassword: !!password,
@@ -386,7 +459,11 @@ io.on('connection', (socket) => {
     for (const t of newTiles) {
       let idx = player.rack.findIndex(r => t.isBlank ? r.isBlank : r.letter === t.letter);
       if (idx === -1) idx = player.rack.findIndex(r => r.letter === t.letter);
-      if (idx !== -1) player.rack.splice(idx, 1);
+      if (idx !== -1) {
+        player.rack.splice(idx, 1);
+      } else if (player.rack.length > 0) {
+        player.rack.pop();
+      }
     }
 
     // Refill rack from bag
@@ -400,6 +477,8 @@ io.on('connection', (socket) => {
     delete session.stagedPositions[playerId];
 
     const wordsStr = (data.wordsFormed || []).map(w => w.word + ' (' + w.points + ' pts)').join(', ');
+    console.log(`[Play Move] ${player.name} (${inviteCode}) played: ${wordsStr || (score + ' pts')} (${newTiles.length} tiles)`);
+
     session.moveHistory.unshift({
       playerName: player.name,
       playerColor: player.color,
@@ -420,6 +499,7 @@ io.on('connection', (socket) => {
       newTiles: newTiles,
       totalScore: score,
       isBingo: !!data.isBingo,
+      wordsFormed: data.wordsFormed || [],
       session: serializeSession(session)
     });
     io.to(inviteCode).emit('sync_state', serializeSession(session));

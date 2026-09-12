@@ -34,9 +34,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const urlParams = new URLSearchParams(window.location.search);
   const roomParam = urlParams.get('room');
 
-  // Check stored room code from localStorage
+  // Check stored room code from localStorage, but keep isHost in sessionStorage per tab!
   const storedRoom = localStorage.getItem('wwf_room_code');
-  const storedIsHost = localStorage.getItem('wwf_is_host');
+  const storedIsHost = sessionStorage.getItem('wwf_is_host');
 
   let currentRoomCode = '';
   let isHost = true;
@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (roomParam) {
     // User arrived via room invite link or persistent URL
     currentRoomCode = roomParam.toUpperCase().trim();
-    isHost = (storedRoom === currentRoomCode) ? (storedIsHost !== 'false') : false;
+    isHost = (storedRoom === currentRoomCode && storedIsHost === 'true');
   } else if (storedRoom) {
     // User refreshed page without query param - reuse existing room code!
     currentRoomCode = storedRoom.toUpperCase().trim();
@@ -53,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fresh new session - generate initial friend code
     currentRoomCode = 'WWF-' + Math.floor(1000 + Math.random() * 9000);
     isHost = true;
+    sessionStorage.setItem('wwf_is_host', 'true');
   }
 
   if (!localPlayerName) {
@@ -62,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   let lobbyPlayers = [
-    { name: localPlayerName, isBot: false, isHost: isHost }
+    { id: game.network.playerId, name: localPlayerName, isBot: false, isHost: isHost }
   ];
 
   function updateHeaderName(name) {
@@ -78,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
     currentRoomCode = code;
     isHost = asHost;
     localStorage.setItem('wwf_room_code', code);
-    localStorage.setItem('wwf_is_host', isHost ? 'true' : 'false');
+    sessionStorage.setItem('wwf_is_host', isHost ? 'true' : 'false');
 
     if (elements.headerRoomCode) elements.headerRoomCode.innerText = code;
     const lobbyCodeEl = document.getElementById('lobby-friend-code');
@@ -561,6 +562,11 @@ document.addEventListener('DOMContentLoaded', () => {
     game.network.syncPlayerPositions(stagedList);
   };
 
+  // Re-render board immediately when remote opponent stages or modifies tiles
+  game.onRemoteStagedChange = () => {
+    boardCtrl.renderBoard();
+  };
+
   // Local Pass & Play Roster Generation
   function renderLocalPlayerRows() {
     const select = document.getElementById('local-player-count-select');
@@ -793,7 +799,13 @@ document.addEventListener('DOMContentLoaded', () => {
   openLobbyModal();
   if (roomParam && !isHost) {
     setTab('join');
+    const joinCodeInput = document.getElementById('join-code-input');
+    if (joinCodeInput) joinCodeInput.value = currentRoomCode;
   } else {
     setTab('create');
+    // Ensure room is registered on server so invite code is immediately valid for joining friends
+    if (isHost && currentRoomCode) {
+      game.network.createRoomWithCode(currentRoomCode, null, { mode: 'WWF', timerMinutes: 0 });
+    }
   }
 });

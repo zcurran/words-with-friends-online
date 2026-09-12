@@ -369,7 +369,8 @@ class ScrabbleGame {
       newTiles: newTiles,
       totalScore: res.totalScore,
       isBingo: res.isBingo,
-      playerId: player.id
+      playerId: player.id,
+      wordsFormed: res.wordsFormed
     });
 
     if (this.tileBag.length === 0 && player.rack.length === 0) {
@@ -622,6 +623,27 @@ class ScrabbleGame {
   applyRemoteSwap(payload) {
     AUDIO.playShuffle();
     this.advanceTurn();
+  }
+
+  onRemotePlayerPositions(data) {
+    if (!data) return;
+    if (!this.remoteStagedPositions) {
+      this.remoteStagedPositions = {};
+    }
+    const playerId = data.playerId;
+    if (data.stagedTiles && data.stagedTiles.length > 0) {
+      const player = this.players.find(p => p.id === playerId);
+      this.remoteStagedPositions[playerId] = {
+        playerName: player ? player.name : 'Opponent',
+        playerColor: player ? player.color : '#2196f3',
+        tiles: data.stagedTiles
+      };
+    } else {
+      delete this.remoteStagedPositions[playerId];
+    }
+    if (this.onRemoteStagedChange) {
+      this.onRemoteStagedChange(this.remoteStagedPositions);
+    }
   }
 
   notifyUpdate() {
