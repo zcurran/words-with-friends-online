@@ -23,8 +23,10 @@ body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding: 12px 24px;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -70,7 +72,23 @@ body {
 .header-controls {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .app-header {
+    justify-content: center;
+    padding: 10px 12px;
+  }
+  .header-controls {
+    justify-content: center;
+    gap: 8px;
+  }
+  .header-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
 }
 
 .header-btn {
