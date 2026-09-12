@@ -246,12 +246,15 @@ class ScrabbleGame {
     this.currentTurnIndex = 0;
     this.turnTimerSec = timerMinutes * 60;
 
-    this.buildTileBag();
-
     const playerColors = [
       '#ff9800', '#2196f3', '#4caf50', '#e91e63', '#9c27b0',
       '#00bcd4', '#ff5722', '#8bc34a', '#3f51b5', '#e040fb'
     ];
+    const numPlayers = Math.min(10, playerConfigs.length);
+
+    // Build shared tile bag sized for the full player group BEFORE dealing racks
+    this.buildTileBag(numPlayers);
+
     this.players = playerConfigs.slice(0, 10).map((cfg, idx) => {
       // Try restoring persisted rack for rejoining players
       let rack = this.restorePlayerSnapshot(cfg.id);
@@ -286,13 +289,17 @@ class ScrabbleGame {
     this.checkBotTurn();
   }
 
-  buildTileBag() {
+  buildTileBag(numPlayers = 2) {
     this.tileBag = [];
     const tileDef = this.mode === 'WWF' ? this.config.WWF_TILES : this.config.SCRABBLE_TILES;
     
-    // Scale tile counts relative to player count (1 set per 2 players)
-    const playerCount = this.players ? this.players.length : 1;
-    const scaleFactor = Math.max(1, Math.ceil(playerCount / 2));
+    // Shared pool: 100 tiles for 2 players, +50 tiles per extra player beyond 2.
+    // Scale factor relative to a standard single set (100 tiles for 2 players):
+    //   2 players  -> scaleFactor = 1.0  (~100 tiles)
+    //   3 players  -> scaleFactor = 1.5  (~150 tiles)
+    //   4 players  -> scaleFactor = 2.0  (~200 tiles)  etc.
+    const n = Math.max(2, numPlayers);
+    const scaleFactor = 1 + (n - 2) * 0.5;
 
     for (const letter in tileDef) {
       const info = tileDef[letter];
@@ -551,7 +558,7 @@ class ScrabbleGame {
     if (player && player.isBot) {
       setTimeout(() => {
         if (this.gameOver || this.getCurrentPlayer() !== player) return;
-        const best = BOT.findBestMove(this.board, player.rack, player.botLevel, this.mode);
+        const best = BOT.findBestMove(this.board, player.rack, player.botLevel, this.mode, this.boardSize || 15);
         if (best && best.move) {
           this.playMove(best.move);
         } else if (this.tileBag.length >= 7) {

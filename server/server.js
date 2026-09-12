@@ -95,6 +95,13 @@ function buildTileBag(mode, scaleFactor = 1) {
   return bag;
 }
 
+// Compute scale factor from player count:
+// 2 players -> 1.0x (~100 tiles), 3 -> 1.5x (~150), 4 -> 2.0x (~200), etc.
+function tileScaleForPlayers(numPlayers) {
+  const n = Math.max(2, numPlayers);
+  return 1 + (n - 2) * 0.5;
+}
+
 
 function drawTiles(bag, count) {
   const drawn = [];
@@ -113,6 +120,7 @@ function serializeSession(session) {
     inviteCode: session.inviteCode,
     hasPassword: !!session.password,
     mode: session.mode,
+    boardSize: session.boardSize || 15,
     timerMinutes: session.timerMinutes,
     board: session.board,
     players: session.players.map(p => ({
@@ -226,7 +234,10 @@ io.on('connection', (socket) => {
         }
       }
 
-      const tileBag = buildTileBag(mode, 1);
+      const boardSize = Math.max(5, Math.min(100, parseInt(data.boardSize) || 15));
+      // 1 player host initially; bag will grow as players join
+      const initialScale = tileScaleForPlayers(1);
+      const tileBag = buildTileBag(mode, initialScale);
       const hostRack = drawTiles(tileBag, 7);
 
       session = {
@@ -236,9 +247,11 @@ io.on('connection', (socket) => {
         hostSocketId: socket.id,
         hostPlayerId: hostPlayerId,
         mode: mode,
+        boardSize: boardSize,
         timerMinutes: timerMinutes,
         tileBagsGenerated: 1,
-        board: Array(15).fill(null).map(() => Array(15).fill(null)),
+        currentTileScale: initialScale,
+        board: Array(boardSize).fill(null).map(() => Array(boardSize).fill(null)),
         tileBag: tileBag,
         players: [
           {
@@ -351,25 +364,24 @@ io.on('connection', (socket) => {
 
         const seatIndex = session.players.length; // Player position 0..9
 
-        session.players.push({ id: playerId }); // temporary push to calculate required bags
-
-        // Check if we need to add more tiles
-        const neededBags = Math.max(1, Math.ceil(session.players.length / 2));
-        if (neededBags > (session.tileBagsGenerated || 1)) {
-           const extraBags = neededBags - (session.tileBagsGenerated || 1);
-           const newTiles = buildTileBag(session.mode, extraBags);
-           session.tileBag.push(...newTiles);
-           // Shuffle
-           for (let i = session.tileBag.length - 1; i > 0; i--) {
-             const j = Math.floor(Math.random() * (i + 1));
-             const temp = session.tileBag[i];
-             session.tileBag[i] = session.tileBag[j];
-             session.tileBag[j] = temp;
-           }
-           session.tileBagsGenerated = neededBags;
+        // Expand tile bag if the new player count needs more tiles
+        // Formula: 100 tiles for 2 players, +50 per extra player beyond 2
+        const newPlayerCount = session.players.length + 1;
+        const neededScale = tileScaleForPlayers(newPlayerCount);
+        const currentScale = session.currentTileScale || 1;
+        if (neededScale > currentScale) {
+          const extraScale = neededScale - currentScale;
+          const newTiles = buildTileBag(session.mode, extraScale);
+          session.tileBag.push(...newTiles);
+          // Re-shuffle entire bag
+          for (let i = session.tileBag.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const temp = session.tileBag[i];
+            session.tileBag[i] = session.tileBag[j];
+            session.tileBag[j] = temp;
+          }
+          session.currentTileScale = neededScale;
         }
-        
-        session.players.pop(); // remove temporary push
 
         const rack = drawTiles(session.tileBag, 7);
         player = {
