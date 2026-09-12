@@ -96,6 +96,10 @@ document.addEventListener('DOMContentLoaded', () => {
         window.history.replaceState({}, '', currentUrl.pathname + currentUrl.search);
       }
     } catch (err) {}
+
+    // Save this room in the My Games registry
+    saveRoomToRegistry(code, hasPassword);
+    renderMyGamesList();
   }
   updateRoomUI(currentRoomCode, isHost);
 
@@ -103,6 +107,162 @@ document.addEventListener('DOMContentLoaded', () => {
   game.network.playerName = localPlayerName;
   game.network.setRoomCode(currentRoomCode, isHost);
   game.network.connectWebSocket();
+
+  // ── My Games Room Switcher ────────────────────────────────────────────────
+  // Registry: array of { code, label, lastActive, hasPassword }
+  function loadRoomRegistry() {
+    try { return JSON.parse(localStorage.getItem('wwf_my_rooms') || '[]'); } catch { return []; }
+  }
+  function saveRoomRegistry(rooms) {
+    localStorage.setItem('wwf_my_rooms', JSON.stringify(rooms));
+  }
+  function saveRoomToRegistry(code, hasPassword = false) {
+    if (!code || code === 'LOCAL') return;
+    const rooms = loadRoomRegistry();
+    const existing = rooms.find(r => r.code === code);
+    if (existing) {
+      existing.lastActive = Date.now();
+      existing.hasPassword = hasPassword;
+    } else {
+      rooms.push({ code, label: code, lastActive: Date.now(), hasPassword: !!hasPassword });
+    }
+    // Keep most recent 20 rooms max
+    rooms.sort((a, b) => b.lastActive - a.lastActive);
+    saveRoomRegistry(rooms.slice(0, 20));
+    updateMyGamesBadge();
+  }
+  function removeRoomFromRegistry(code) {
+    const rooms = loadRoomRegistry().filter(r => r.code !== code);
+    saveRoomRegistry(rooms);
+    updateMyGamesBadge();
+    renderMyGamesList();
+  }
+  function updateMyGamesBadge() {
+    const badge = document.getElementById('my-games-badge');
+    const rooms = loadRoomRegistry();
+    if (!badge) return;
+    if (rooms.length > 0) {
+      badge.style.display = 'inline';
+      badge.innerText = rooms.length;
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  function switchToRoom(code) {
+    const panel = document.getElementById('my-games-panel');
+    if (panel) panel.style.display = 'none';
+    const name = localPlayerName;
+    updateRoomUI(code, false);
+    game.network.playerName = name;
+    game.network.joinRoomWithCode(code, null, name);
+    // Reset board to clean slate for the switched room
+    boardCtrl.recallAll();
+  }
+
+  function renderMyGamesList() {
+    const container = document.getElementById('my-games-list');
+    if (!container) return;
+    const rooms = loadRoomRegistry();
+    updateMyGamesBadge();
+    container.innerHTML = '';
+
+    if (rooms.length === 0) {
+      container.innerHTML = '<p style="color:#64748b; font-size:13px; text-align:center; padding:20px 0;">No saved rooms yet.<br>Create or join a room to see it here.</p>';
+      return;
+    }
+
+    rooms.forEach(room => {
+      const isActive = room.code === currentRoomCode;
+      const card = document.createElement('div');
+      card.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-radius:10px; border:1px solid ' + (isActive ? 'rgba(255,152,0,0.6)' : 'rgba(255,255,255,0.08)') + '; background:' + (isActive ? 'rgba(255,152,0,0.1)' : 'rgba(255,255,255,0.03)') + '; transition:all 0.2s;';
+
+      const left = document.createElement('div');
+      left.style.cssText = 'display:flex; flex-direction:column; gap:3px;';
+      left.innerHTML =
+        '<span style="font-weight:800; font-size:14px; color:' + (isActive ? '#ffd54f' : '#e2e8f0') + ';">' +
+          (room.hasPassword ? '🔒 ' : '') + room.code +
+        '</span>' +
+        '<span style="font-size:11px; color:#64748b;">' +
+          (isActive ? '● Active now' : 'Last: ' + new Date(room.lastActive).toLocaleString([], { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })) +
+        '</span>';
+
+      const right = document.createElement('div');
+      right.style.cssText = 'display:flex; gap:8px; align-items:center;';
+
+      if (!isActive) {
+        const switchBtn = document.createElement('button');
+        switchBtn.innerText = '▶ Switch';
+        switchBtn.style.cssText = 'padding:6px 14px; border-radius:6px; background:linear-gradient(135deg,#0284c7,#0369a1); border:none; color:#fff; font-weight:700; font-size:12px; cursor:pointer;';
+        switchBtn.onclick = () => switchToRoom(room.code);
+        right.appendChild(switchBtn);
+      } else {
+        const activePill = document.createElement('span');
+        activePill.innerText = '✓ Here';
+        activePill.style.cssText = 'padding:4px 10px; border-radius:6px; background:rgba(34,197,94,0.2); color:#4ade80; font-size:11px; font-weight:700;';
+        right.appendChild(activePill);
+      }
+
+      const copyBtn = document.createElement('button');
+      copyBtn.title = 'Copy invite link';
+      copyBtn.innerText = '🔗';
+      copyBtn.style.cssText = 'padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); color:#94a3b8; font-size:12px; cursor:pointer;';
+      copyBtn.onclick = () => {
+        const url = window.location.origin + window.location.pathname + '?room=' + room.code;
+        navigator.clipboard.writeText(url).then(() => alert('Invite link copied!\n' + url)).catch(() => prompt('Copy:', url));
+      };
+      right.appendChild(copyBtn);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.title = 'Remove from list';
+      removeBtn.innerText = '✕';
+      removeBtn.style.cssText = 'padding:6px 8px; border-radius:6px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#ef4444; font-size:12px; cursor:pointer;';
+      removeBtn.onclick = () => removeRoomFromRegistry(room.code);
+      right.appendChild(removeBtn);
+
+      card.appendChild(left);
+      card.appendChild(right);
+      container.appendChild(card);
+    });
+  }
+
+  // Wire up My Games panel toggle
+  const btnMyGames = document.getElementById('btn-my-games');
+  const myGamesPanel = document.getElementById('my-games-panel');
+  const btnCloseMyGames = document.getElementById('btn-close-my-games');
+  const btnMyGamesNewRoom = document.getElementById('btn-my-games-new-room');
+
+  if (btnMyGames) {
+    btnMyGames.onclick = () => {
+      renderMyGamesList();
+      if (myGamesPanel) myGamesPanel.style.display = myGamesPanel.style.display === 'none' ? 'block' : 'none';
+    };
+  }
+  if (btnCloseMyGames) btnCloseMyGames.onclick = () => { if (myGamesPanel) myGamesPanel.style.display = 'none'; };
+  if (btnMyGamesNewRoom) {
+    btnMyGamesNewRoom.onclick = () => {
+      if (myGamesPanel) myGamesPanel.style.display = 'none';
+      openLobbyModal();
+      setTab('create');
+      const newCode = 'WWF-' + Math.floor(1000 + Math.random() * 9000);
+      updateRoomUI(newCode, true);
+    };
+  }
+
+  // Close panel when clicking outside of it
+  document.addEventListener('click', (e) => {
+    if (myGamesPanel && myGamesPanel.style.display !== 'none') {
+      if (!myGamesPanel.contains(e.target) && e.target !== btnMyGames && !btnMyGames.contains(e.target)) {
+        myGamesPanel.style.display = 'none';
+      }
+    }
+  });
+
+  // Initialize badge on load
+  updateMyGamesBadge();
+  // ─────────────────────────────────────────────────────────────────────────
+
+
 
   // 3. Render functions
   const playerPalette = [

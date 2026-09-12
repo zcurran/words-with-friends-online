@@ -23,6 +23,9 @@
       <button class="header-btn room-badge-btn" id="btn-open-lobby">
         👥 Room: <strong id="header-room-code" style="color: #ffd54f;">LOCAL</strong> <span id="header-lock-badge" style="display:none;">🔒</span>
       </button>
+      <button class="header-btn" id="btn-my-games" title="Switch between your active games" style="position:relative;">
+        🗂 My Games <span id="my-games-badge" style="display:none; background:#ff9800; color:#000; border-radius:50%; font-size:10px; font-weight:900; padding:1px 5px; margin-left:4px;">0</span>
+      </button>
       <button class="header-btn name-badge-btn" id="btn-change-name" title="Change your player name">
         👤 <span id="header-player-name">Player 1</span> ✏️
       </button>
@@ -34,6 +37,21 @@
       <button class="header-btn" id="btn-new-game">⚙️ New Game</button>
     </div>
   </header>
+
+  <!-- My Games Dropdown Panel -->
+  <div id="my-games-panel" style="display:none; position:fixed; top:60px; left:50%; transform:translateX(-50%); z-index:500; background:rgba(15,23,42,0.97); border:1px solid rgba(255,152,0,0.4); border-radius:14px; padding:20px; min-width:360px; max-width:480px; box-shadow:0 12px 40px rgba(0,0,0,0.6); backdrop-filter:blur(16px);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <span style="font-size:15px; font-weight:800; color:#ffd54f;">🗂 My Active Games</span>
+      <button id="btn-close-my-games" style="background:transparent; border:none; color:#94a3b8; font-size:20px; cursor:pointer; line-height:1;">×</button>
+    </div>
+    <div id="my-games-list" style="display:flex; flex-direction:column; gap:10px; max-height:340px; overflow-y:auto;">
+      <!-- Populated by app.js -->
+    </div>
+    <div style="margin-top:14px; border-top:1px solid rgba(255,255,255,0.08); padding-top:12px;">
+      <button id="btn-my-games-new-room" style="width:100%; padding:10px; border-radius:8px; background:linear-gradient(135deg,#ff9800,#f57c00); border:none; color:#000; font-weight:800; font-size:13px; cursor:pointer;">+ Create a New Room</button>
+    </div>
+  </div>
+
 
   <!-- Main Game Content -->
   <main class="main-content">
