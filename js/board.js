@@ -153,15 +153,20 @@ class BoardController {
     const rackEl = this.elements.rackEl;
     if (!boardEl || !rackEl) return;
 
+    // Guard: track whether the last interaction was a drag so we can suppress the 'click' that fires after dragend
+    let isDragging = false;
+
     // Drag start on rack
     rackEl.addEventListener('dragstart', (e) => {
       const tileEl = e.target.closest('.wood-tile');
       if (!tileEl) return;
+      isDragging = true;
       const index = parseInt(tileEl.dataset.index);
       const player = this.game.getLocalPlayer ? this.game.getLocalPlayer() : this.game.getCurrentPlayer();
       if (!player || !player.rack[index]) return;
       const tileData = player.rack[index];
       this.draggedTileData = { ...tileData, rackIndex: index, from: 'rack' };
+      e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', JSON.stringify(this.draggedTileData));
       AUDIO.playTileClick();
     });
@@ -170,12 +175,14 @@ class BoardController {
     boardEl.addEventListener('dragstart', (e) => {
       const tileEl = e.target.closest('.staged-tile');
       if (!tileEl) return;
+      isDragging = true;
       const r = parseInt(tileEl.dataset.r);
       const c = parseInt(tileEl.dataset.c);
       const staged = this.stagedTiles.get(r + ',' + c);
       if (!staged) return;
 
       this.draggedTileData = { ...staged, from: 'board', r, c };
+      e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', JSON.stringify(this.draggedTileData));
       AUDIO.playTileClick();
     });
@@ -324,13 +331,17 @@ class BoardController {
     rackShelfEl.addEventListener('drop', handleRackDrop);
 
     // Global dragend to clean up any leftover hover highlights
+    // Reset isDragging after a short delay so the click that fires immediately after dragend is suppressed
     document.addEventListener('dragend', () => {
       document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
       this.draggedTileData = null;
+      // Use a short timeout so the click event (which fires right after dragend) is skipped
+      setTimeout(() => { isDragging = false; }, 50);
     });
 
-    // Click on Rack Tile (Tap-to-place selection)
+    // Click on Rack Tile (Tap-to-place selection) — suppressed if a drag just occurred
     rackEl.addEventListener('click', (e) => {
+      if (isDragging) return; // drag just ended, ignore this click
       const tileEl = e.target.closest('.wood-tile');
       if (!tileEl) return;
       const index = parseInt(tileEl.dataset.index);
@@ -344,8 +355,9 @@ class BoardController {
       this.renderRack();
     });
 
-    // Click on Board Cell
+    // Click on Board Cell — suppressed if a drag just occurred
     boardEl.addEventListener('click', (e) => {
+      if (isDragging) return; // drag just ended, ignore this click
       const cell = e.target.closest('.board-cell');
       if (!cell) return;
       const r = parseInt(cell.dataset.r);

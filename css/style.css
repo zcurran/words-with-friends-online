@@ -768,3 +768,16 @@ body {
 .hidden {
   display: none !important;
 }
+
+/* Drag-and-drop tile improvements */
+[draggable="true"] {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: element;
+  touch-action: none;
+}
+
+[draggable="true"]:active {
+  cursor: grabbing;
+}
