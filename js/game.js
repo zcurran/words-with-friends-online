@@ -289,9 +289,15 @@ class ScrabbleGame {
   buildTileBag() {
     this.tileBag = [];
     const tileDef = this.mode === 'WWF' ? this.config.WWF_TILES : this.config.SCRABBLE_TILES;
+    
+    // Scale tile counts relative to player count (1 set per 2 players)
+    const playerCount = this.players ? this.players.length : 1;
+    const scaleFactor = Math.max(1, Math.ceil(playerCount / 2));
+
     for (const letter in tileDef) {
       const info = tileDef[letter];
-      for (let i = 0; i < info.count; i++) {
+      const targetCount = Math.max(1, Math.round(info.count * scaleFactor));
+      for (let i = 0; i < targetCount; i++) {
         this.tileBag.push({
           letter: letter,
           points: info.points,

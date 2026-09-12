@@ -74,12 +74,14 @@ const PLAYER_PALETTE = [
   '#00bcd4', '#ff5722', '#8bc34a', '#3f51b5', '#e040fb'
 ];
 
-function buildTileBag(mode) {
+function buildTileBag(mode, scaleFactor = 1) {
   const def = (mode === 'SCRABBLE') ? TILE_DEFINITIONS.SCRABBLE : TILE_DEFINITIONS.WWF;
   const bag = [];
+  
   for (const letter in def) {
     const item = def[letter];
-    for (let i = 0; i < item.count; i++) {
+    const targetCount = Math.max(1, Math.round(item.count * scaleFactor));
+    for (let i = 0; i < targetCount; i++) {
       bag.push({ letter: letter, points: item.points, isBlank: letter === '_' });
     }
   }
@@ -92,6 +94,7 @@ function buildTileBag(mode) {
   }
   return bag;
 }
+
 
 function drawTiles(bag, count) {
   const drawn = [];
@@ -223,7 +226,7 @@ io.on('connection', (socket) => {
         }
       }
 
-      const tileBag = buildTileBag(mode);
+      const tileBag = buildTileBag(mode, 1);
       const hostRack = drawTiles(tileBag, 7);
 
       session = {
@@ -234,6 +237,7 @@ io.on('connection', (socket) => {
         hostPlayerId: hostPlayerId,
         mode: mode,
         timerMinutes: timerMinutes,
+        tileBagsGenerated: 1,
         board: Array(15).fill(null).map(() => Array(15).fill(null)),
         tileBag: tileBag,
         players: [
@@ -346,6 +350,27 @@ io.on('connection', (socket) => {
         }
 
         const seatIndex = session.players.length; // Player position 0..9
+
+        session.players.push({ id: playerId }); // temporary push to calculate required bags
+
+        // Check if we need to add more tiles
+        const neededBags = Math.max(1, Math.ceil(session.players.length / 2));
+        if (neededBags > (session.tileBagsGenerated || 1)) {
+           const extraBags = neededBags - (session.tileBagsGenerated || 1);
+           const newTiles = buildTileBag(session.mode, extraBags);
+           session.tileBag.push(...newTiles);
+           // Shuffle
+           for (let i = session.tileBag.length - 1; i > 0; i--) {
+             const j = Math.floor(Math.random() * (i + 1));
+             const temp = session.tileBag[i];
+             session.tileBag[i] = session.tileBag[j];
+             session.tileBag[j] = temp;
+           }
+           session.tileBagsGenerated = neededBags;
+        }
+        
+        session.players.pop(); // remove temporary push
+
         const rack = drawTiles(session.tileBag, 7);
         player = {
           id: playerId,
