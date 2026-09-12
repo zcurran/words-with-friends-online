@@ -474,7 +474,11 @@ class ScrabbleGame {
       attempts++;
     }
 
-    AUDIO.playTurnBell();
+    const localPlayer = this.getLocalPlayer();
+    if (localPlayer && this.getCurrentPlayer() && this.getCurrentPlayer().id === localPlayer.id) {
+      AUDIO.playTurnBell();
+    }
+
     this.startTurnTimer();
     this.notifyUpdate();
     this.checkBotTurn();
