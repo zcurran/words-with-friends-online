@@ -474,6 +474,15 @@ class ScrabbleGame {
       attempts++;
     }
 
+    this.checkLocalTurnNotification();
+
+    this.startTurnTimer();
+    this.notifyUpdate();
+    this.checkBotTurn();
+  }
+
+  // Plays the bell and flashes the screen if it just became the local player's turn
+  checkLocalTurnNotification() {
     const localPlayer = this.getLocalPlayer();
     if (localPlayer && this.getCurrentPlayer() && this.getCurrentPlayer().id === localPlayer.id) {
       try { AUDIO.playTurnBell(); } catch (e) {}
@@ -511,10 +520,6 @@ class ScrabbleGame {
         setTimeout(() => toast.remove(), 300);
       }, 4000);
     }
-
-    this.startTurnTimer();
-    this.notifyUpdate();
-    this.checkBotTurn();
   }
 
   checkBotTurn() {
@@ -628,7 +633,13 @@ class ScrabbleGame {
       }
     }
 
+    const prevTurn = this.currentTurnIndex;
     this.currentTurnIndex = state.currentTurnIndex !== undefined ? state.currentTurnIndex : this.currentTurnIndex;
+    
+    // If the turn changed to us due to a remote network update, trigger the notification
+    if (prevTurn !== this.currentTurnIndex) {
+      this.checkLocalTurnNotification();
+    }
     this.mode = state.mode || this.mode;
     this.moveHistory = state.moveHistory || this.moveHistory;
     this.gameOver = !!state.gameOver;
