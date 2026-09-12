@@ -592,15 +592,30 @@ class BoardController {
       return;
     }
 
+    // Snapshot staged tiles before clearing, so playMove gets the data
     const stagedArray = Array.from(this.stagedTiles.values());
+
+    // Clear staged tiles BEFORE calling playMove so that when notifyUpdate()
+    // fires inside playMove, renderBoard doesn't show ghost tiles on top of
+    // the newly committed tiles.
+    this.stagedTiles.clear();
+    this.selectedRackIndex = null;
+
     const res = this.game.playMove(stagedArray);
 
     if (res.valid) {
-      this.stagedTiles.clear();
-      this.selectedRackIndex = null;
+      // Already cleared above; notify server the staged positions are gone
+      this.notifyStagedChanged();
       this.renderBoard();
       this.renderRack();
-      this.notifyStagedChanged();
+    } else {
+      // Move was invalid – restore staged tiles so the player can try again
+      for (const t of stagedArray) {
+        this.stagedTiles.set(t.r + ',' + t.c, t);
+      }
+      this.renderBoard();
+      this.renderRack();
+      this.updateLiveScorePreview();
     }
   }
 }
