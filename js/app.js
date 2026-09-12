@@ -451,7 +451,10 @@ document.addEventListener('DOMContentLoaded', () => {
     renderMoveHistory(gameState);
 
     if (elements.bagCountEl) {
-      elements.bagCountEl.innerText = gameState.tileBag.length;
+      // In multiplayer, use server-authoritative count; otherwise use local bag
+      const isMultiplayer = gameState.network && gameState.network.socket && gameState.network.socket.connected && gameState.network.roomCode;
+      const bagCount = isMultiplayer ? (gameState.tileBagCount !== undefined ? gameState.tileBagCount : gameState.tileBag.length) : gameState.tileBag.length;
+      elements.bagCountEl.innerText = bagCount;
     }
 
     if (elements.modeDisplayEl) {

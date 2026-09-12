@@ -366,9 +366,14 @@ class ScrabbleGame {
       }
     }
 
-    const needed = this.config.RACK_SIZE - player.rack.length;
-    const drawn = this.drawTiles(needed);
-    player.rack.push(...drawn);
+    // In multiplayer: server owns the tile bag and will send updated rack via sync_state.
+    // In local/offline mode: draw from local tileBag.
+    const isMultiplayer = this.network && this.network.socket && this.network.socket.connected && this.network.roomCode;
+    if (!isMultiplayer) {
+      const needed = this.config.RACK_SIZE - player.rack.length;
+      const drawn = this.drawTiles(needed);
+      player.rack.push(...drawn);
+    }
 
     player.score += res.totalScore;
     this.consecutivePasses = 0;
@@ -385,7 +390,7 @@ class ScrabbleGame {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     });
 
-    // Broadcast move to room
+    // Broadcast move to room (server will handle tile draw + sync in multiplayer)
     this.network.sendAction('MOVE_PLAYED', {
       newTiles: newTiles,
       totalScore: res.totalScore,
@@ -394,12 +399,17 @@ class ScrabbleGame {
       wordsFormed: res.wordsFormed
     });
 
-    if (this.tileBag.length === 0 && player.rack.length === 0) {
-      this.finishGame(player.id);
-      return res;
+    if (!isMultiplayer) {
+      // Local mode: check end condition based on local bag
+      if (this.tileBag.length === 0 && player.rack.length === 0) {
+        this.finishGame(player.id);
+        return res;
+      }
+      this.advanceTurn();
     }
+    // In multiplayer: server sends sync_state which calls applyFullState → advanceTurn is handled server-side
 
-    this.advanceTurn();
+    this.notifyUpdate();
     return res;
   }
 
@@ -442,15 +452,19 @@ class ScrabbleGame {
       }
     }
 
-    const drawn = this.drawTiles(swapped.length);
-    player.rack.push(...drawn);
-
-    this.tileBag.push(...swapped);
-    for (let i = this.tileBag.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      const tmp = this.tileBag[i];
-      this.tileBag[i] = this.tileBag[j];
-      this.tileBag[j] = tmp;
+    // In multiplayer: server handles tile draw from shared bag.
+    // In local/offline mode: draw from local tileBag.
+    const isMultiplayer = this.network && this.network.socket && this.network.socket.connected && this.network.roomCode;
+    if (!isMultiplayer) {
+      const drawn = this.drawTiles(swapped.length);
+      player.rack.push(...drawn);
+      this.tileBag.push(...swapped);
+      for (let i = this.tileBag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = this.tileBag[i];
+        this.tileBag[i] = this.tileBag[j];
+        this.tileBag[j] = tmp;
+      }
     }
 
     AUDIO.playShuffle();
@@ -465,9 +479,12 @@ class ScrabbleGame {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     });
 
-    this.network.sendAction('TILES_SWAPPED', { playerId: player.id, count: swapped.length });
+    this.network.sendAction('TILES_SWAPPED', { playerId: player.id, count: swapped.length, tileIndices: selectedIndices });
 
-    this.advanceTurn();
+    if (!isMultiplayer) {
+      this.advanceTurn();
+    }
+    this.notifyUpdate();
     return { success: true };
   }
 
@@ -674,6 +691,11 @@ class ScrabbleGame {
     if (!state) return;
     this.board = state.board || this.board;
     if (state.boardSize) this.boardSize = state.boardSize;
+
+    // Sync tile bag count from server (server is authoritative for tile bag in multiplayer)
+    if (state.tileBagCount !== undefined) {
+      this.tileBagCount = state.tileBagCount; // track for display purposes
+    }
 
     if (state.players && state.players.length > 0) {
       this.players = state.players;
