@@ -70,7 +70,7 @@ class AudioManager {
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(320, t);
       osc.frequency.exponentialRampToValueAtTime(80, t + 0.06);
-      gain.gain.setValueAtTime(0.3, t);
+      gain.gain.setValueAtTime(0.15, t);
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
@@ -99,7 +99,7 @@ class AudioManager {
         const gain = this.ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, t);
-        gain.gain.setValueAtTime(0.25, t);
+        gain.gain.setValueAtTime(0.12, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
@@ -119,7 +119,7 @@ class AudioManager {
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(140, t);
       osc.frequency.linearRampToValueAtTime(110, t + 0.22);
-      gain.gain.setValueAtTime(0.25, t);
+      gain.gain.setValueAtTime(0.12, t);
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
@@ -144,7 +144,7 @@ class AudioManager {
         osc1.type = 'sine';
         osc1.frequency.setValueAtTime(freq, startTime);
         gain1.gain.setValueAtTime(0.0, startTime);
-        gain1.gain.linearRampToValueAtTime(0.8, startTime + 0.01);
+        gain1.gain.linearRampToValueAtTime(0.4, startTime + 0.01);
         gain1.gain.exponentialRampToValueAtTime(0.001, startTime + sustainSec);
         osc1.connect(gain1);
         gain1.connect(this.ctx.destination);
@@ -157,7 +157,7 @@ class AudioManager {
         osc2.type = 'sine';
         osc2.frequency.setValueAtTime(freq * 2.756, startTime);
         gain2.gain.setValueAtTime(0.0, startTime);
-        gain2.gain.linearRampToValueAtTime(0.3, startTime + 0.005);
+        gain2.gain.linearRampToValueAtTime(0.15, startTime + 0.005);
         gain2.gain.exponentialRampToValueAtTime(0.001, startTime + sustainSec * 0.4);
         osc2.connect(gain2);
         gain2.connect(this.ctx.destination);
