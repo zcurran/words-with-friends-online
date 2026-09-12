@@ -521,6 +521,15 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.soundBtn.innerText = on ? '🔊 Sound: ON' : '🔇 Sound: OFF';
   };
 
+  const volumeSlider = document.getElementById('volume-slider');
+  if (volumeSlider) {
+    // Initialize slider value from persistent audio state
+    volumeSlider.value = AUDIO.getVolume();
+    volumeSlider.addEventListener('input', (e) => {
+      AUDIO.setVolume(parseFloat(e.target.value));
+    });
+  }
+
   // Open Lobby
   elements.newGameBtn.onclick = () => openLobbyModal();
   elements.openLobbyBtn.onclick = () => openLobbyModal();

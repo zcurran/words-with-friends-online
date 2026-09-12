@@ -10,11 +10,39 @@ class AudioManager {
   init() {
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) this.ctx = new AudioCtx();
+      if (AudioCtx) {
+        this.ctx = new AudioCtx();
+        
+        // Master Volume Control
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.connect(this.ctx.destination);
+        
+        const savedVol = localStorage.getItem('wwf_volume');
+        if (savedVol !== null) {
+          this.masterGain.gain.value = parseFloat(savedVol);
+        } else {
+          this.masterGain.gain.value = 0.5; // Default to half volume
+        }
+      }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
+  }
+
+  setVolume(vol) {
+    if (this.masterGain) {
+      this.masterGain.gain.value = vol;
+    }
+    localStorage.setItem('wwf_volume', vol);
+  }
+
+  getVolume() {
+    if (this.masterGain) {
+      return this.masterGain.gain.value;
+    }
+    const savedVol = localStorage.getItem('wwf_volume');
+    return savedVol !== null ? parseFloat(savedVol) : 0.5;
   }
 
   // Must be called from a user gesture to unlock audio for the session.
@@ -39,7 +67,7 @@ class AudioManager {
     const buf = this.ctx.createBuffer(1, 1, 22050);
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
-    src.connect(this.ctx.destination);
+    src.connect(this.ctx.destination); // Direct to destination, unaffected by master volume
     src.start(0);
     setTimeout(() => this._keepAlive(), 20000);
   }
@@ -70,10 +98,10 @@ class AudioManager {
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(320, t);
       osc.frequency.exponentialRampToValueAtTime(80, t + 0.06);
-      gain.gain.setValueAtTime(0.15, t);
+      gain.gain.setValueAtTime(0.3, t);
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.masterGain);
       osc.start(t);
       osc.stop(t + 0.06);
     });
@@ -99,10 +127,10 @@ class AudioManager {
         const gain = this.ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, t);
-        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.setValueAtTime(0.25, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.masterGain);
         osc.start(t);
         osc.stop(t + duration);
       });
@@ -119,17 +147,16 @@ class AudioManager {
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(140, t);
       osc.frequency.linearRampToValueAtTime(110, t + 0.22);
-      gain.gain.setValueAtTime(0.12, t);
+      gain.gain.setValueAtTime(0.25, t);
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.masterGain);
       osc.start(t);
       osc.stop(t + 0.22);
     });
   }
 
   // YOUR TURN — rich triple-ding notification chime
-  // Always plays regardless of mute (it's a notification, not a game sound)
   playTurnBell() {
     this._ensureRunning(() => {
       const chime = [523.25, 659.25, 783.99]; // C5, E5, G5
@@ -144,10 +171,10 @@ class AudioManager {
         osc1.type = 'sine';
         osc1.frequency.setValueAtTime(freq, startTime);
         gain1.gain.setValueAtTime(0.0, startTime);
-        gain1.gain.linearRampToValueAtTime(0.4, startTime + 0.01);
+        gain1.gain.linearRampToValueAtTime(0.8, startTime + 0.01);
         gain1.gain.exponentialRampToValueAtTime(0.001, startTime + sustainSec);
         osc1.connect(gain1);
-        gain1.connect(this.ctx.destination);
+        gain1.connect(this.masterGain);
         osc1.start(startTime);
         osc1.stop(startTime + sustainSec);
 
@@ -157,10 +184,10 @@ class AudioManager {
         osc2.type = 'sine';
         osc2.frequency.setValueAtTime(freq * 2.756, startTime);
         gain2.gain.setValueAtTime(0.0, startTime);
-        gain2.gain.linearRampToValueAtTime(0.15, startTime + 0.005);
+        gain2.gain.linearRampToValueAtTime(0.3, startTime + 0.005);
         gain2.gain.exponentialRampToValueAtTime(0.001, startTime + sustainSec * 0.4);
         osc2.connect(gain2);
-        gain2.connect(this.ctx.destination);
+        gain2.connect(this.masterGain);
         osc2.start(startTime);
         osc2.stop(startTime + sustainSec);
       });
