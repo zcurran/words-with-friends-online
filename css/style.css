@@ -422,6 +422,7 @@ body {
   height: 38px;
   min-height: 38px;
   max-height: 38px;
+  flex-shrink: 0;
   padding: 6px 18px;
   border-radius: 20px;
   font-size: 13px;
@@ -478,6 +479,8 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 12px;
+  /* Always fully visible — never clipped by parent overflow */
+  flex-shrink: 0;
 }
 
 #rack-tiles {
