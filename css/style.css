@@ -879,3 +879,31 @@ body {
 [draggable="true"]:active {
   cursor: grabbing;
 }
+
+/* ---------- Mobile Phone Adjustments ---------- */
+@media (max-width: 480px) {
+  /* Reduce overall cell size for better fit */
+  :root {
+    --cell-size: 28px; /* smaller tiles */
+  }
+  /* Hide sidebar to give more room for board */
+  .sidebar-panel {
+    display: none !important;
+  }
+  /* Ensure board container does not overflow horizontally */
+  .board-container {
+    overflow-x: auto;
+    padding: 0 8px;
+  }
+  /* Center the board within its container */
+  #scrabble-board {
+    margin: 0 auto;
+  }
+  /* Adjust action buttons layout for narrow screens */
+  .action-buttons-row {
+    justify-content: center;
+  }
+  /* Slightly reduce header font sizes */
+  .brand-name { font-size: 14px; }
+  .brand-mode-badge { font-size: 9px; }
+}
