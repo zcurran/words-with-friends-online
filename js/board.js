@@ -115,18 +115,31 @@ class BoardController {
     // Target the largest square that fits in the available space
     const boardAreaPx = Math.min(availW, availH);
 
-    // Gap between cells (tighter on very large boards)
-    const gap = N > 30 ? 1 : N > 20 ? 1 : 2;
+// Gap between cells (tighter on very large boards)
+const gap = N > 30 ? 1 : N > 20 ? 1 : 2;
 
-    // Cell size = (boardArea - 2*padding - (N-1)*gap) / N
-    const padding = N > 25 ? 4 : 10;
-    let cellPx = Math.floor((boardAreaPx - 2 * padding - (N - 1) * gap) / N);
+// Desired minimum cell size for readability
+const minCell = 36;
 
-    // Only cap the maximum so small boards on large screens don't look absurd.
-    // No minimum — let the board shrink to fit the viewport without scrolling.
-    const maxCell = N <= 11 ? 56 : N <= 15 ? 46 : 9999;
-    cellPx = Math.min(cellPx, maxCell);
-    cellPx = Math.max(cellPx, 4); // absolute floor so cells are never invisible
+// Compute raw cell size based on available space
+const padding = N > 25 ? 4 : 10;
+let rawCell = Math.floor((boardAreaPx - 2 * padding - (N - 1) * gap) / N);
+let baseCell = Math.max(rawCell, minCell);
+
+// Total board size before scaling
+const boardPx = N * baseCell + (N - 1) * gap + 2 * padding;
+// Scale down if board exceeds viewport
+const scale = Math.min(1, availW / boardPx, availH / boardPx);
+// Apply CSS transform to scale board
+boardEl.style.transform = `scale(${scale})`;
+boardEl.style.transformOrigin = "top left";
+
+// Final cell size after scaling, ensure not too tiny
+let cellPx = Math.max(Math.floor(baseCell * scale), 12);
+
+// Cap max cell size for very small boards
+const maxCell = N <= 11 ? 56 : N <= 15 ? 46 : 9999;
+cellPx = Math.min(cellPx, maxCell);
 
     // ─── Write CSS custom properties ─────────────────────────────────────
     // --cell-size  → drives all em-based font sizes in board.css
