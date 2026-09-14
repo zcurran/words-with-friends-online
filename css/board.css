@@ -48,9 +48,26 @@
 #scrabble-board {
   display: grid;
   /* columns/rows/gap/padding are all set dynamically by applyBoardSize() */
-  background-color: #3e2723;
-  border-radius: 10px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55), inset 0 2px 4px rgba(255, 255, 255, 0.08);
+  background: linear-gradient(135deg,
+    #0d3b2e 0%,
+    #0a2e40 35%,
+    #0d2b4a 65%,
+    #1a1040 100%
+  );
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  outline: 3px solid rgba(16, 220, 160, 0.25);
+  outline-offset: 1px;
+  border-radius: 12px;
+  box-shadow:
+    /* outer ambient glow */
+    0 0 0 1px rgba(10, 180, 130, 0.18),
+    0 8px 20px rgba(0, 0, 0, 0.6),
+    0 20px 55px rgba(0, 0, 0, 0.45),
+    0 0 60px rgba(13, 110, 80, 0.22),
+    /* inner gloss highlight */
+    inset 0 2px 5px rgba(255, 255, 255, 0.07),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.4);
   user-select: none;
   flex-shrink: 0;
 }

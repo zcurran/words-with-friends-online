@@ -8,7 +8,11 @@
 
 body {
   font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-  background: radial-gradient(circle at top, #263238 0%, #1a202c 100%);
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(13, 90, 70, 0.55) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 90%, rgba(30, 20, 80, 0.65) 0%, transparent 55%),
+    radial-gradient(ellipse at 60% 30%, rgba(10, 40, 80, 0.45) 0%, transparent 50%),
+    linear-gradient(160deg, #0e1a2b 0%, #0b1a14 45%, #10122a 100%);
   color: #f7fafc;
   min-height: 100vh;
   display: flex;
