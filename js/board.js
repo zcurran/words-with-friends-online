@@ -118,13 +118,18 @@ class BoardController {
 // Gap between cells (tighter on very large boards)
 const gap = N > 30 ? 1 : N > 20 ? 1 : 2;
 
-// Desired minimum cell size for readability
-const minCell = 48;
+// Padding around board
+const padding = N > 25 ? 4 : 10;
 
 // Compute raw cell size based on available space
-const padding = N > 25 ? 4 : 10;
 let rawCell = Math.floor((boardAreaPx - 2 * padding - (N - 1) * gap) / N);
-let baseCell = Math.max(rawCell, minCell);
+
+// For small to medium boards enforce a minimum readable cell size
+let baseCell = rawCell;
+if (N <= 20) { // enforce min cell for readability
+  const minCell = 80;
+  baseCell = Math.max(rawCell, minCell);
+}
 
 // Total board size before scaling
 const boardPx = N * baseCell + (N - 1) * gap + 2 * padding;
@@ -138,7 +143,7 @@ boardEl.style.transformOrigin = "top left";
 let cellPx = Math.max(Math.floor(baseCell * scale), 12);
 
 // Cap max cell size for very small boards
-const maxCell = N <= 11 ? 56 : N <= 15 ? 46 : 9999;
+const maxCell = N <= 11 ? 120 : N <= 15 ? 100 : 9999; // Increased max cell size for larger boards
 cellPx = Math.min(cellPx, maxCell);
 
     // ─── Write CSS custom properties ─────────────────────────────────────
