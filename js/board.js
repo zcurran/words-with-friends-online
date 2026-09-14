@@ -115,21 +115,18 @@ class BoardController {
     // Target the largest square that fits in the available space
     const boardAreaPx = Math.min(availW, availH);
 
-    // Gap between cells
-    const gap = N > 25 ? 1 : 2;
+    // Gap between cells (tighter on very large boards)
+    const gap = N > 30 ? 1 : N > 20 ? 1 : 2;
 
     // Cell size = (boardArea - 2*padding - (N-1)*gap) / N
     const padding = N > 25 ? 4 : 10;
     let cellPx = Math.floor((boardAreaPx - 2 * padding - (N - 1) * gap) / N);
 
-    // Comfortable minimum tile sizes — prefer scrolling over crushing tiles.
-    // All boards get at least 32px cells so letters stay readable.
-    // Only cap max for small boards so they don't look oversized.
-    const minCell = N <= 15 ? 32 : 36;
+    // Only cap the maximum so small boards on large screens don't look absurd.
+    // No minimum — let the board shrink to fit the viewport without scrolling.
     const maxCell = N <= 11 ? 56 : N <= 15 ? 46 : 9999;
-
     cellPx = Math.min(cellPx, maxCell);
-    cellPx = Math.max(cellPx, minCell);
+    cellPx = Math.max(cellPx, 4); // absolute floor so cells are never invisible
 
     // ─── Write CSS custom properties ─────────────────────────────────────
     // --cell-size  → drives all em-based font sizes in board.css
