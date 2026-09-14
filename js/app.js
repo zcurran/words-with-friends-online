@@ -747,7 +747,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       updateRoomUI(currentRoomCode, true, !!password);
       document.getElementById('lobby-modal').classList.add('hidden');
-      game.network.createRoomWithCode(currentRoomCode, password, { mode, timerMinutes: timerVal });
+      game.network.createRoomWithCode(currentRoomCode, password, { mode, timerMinutes: timerVal, boardSize });
       game.startNewGame({
         playerConfigs: lobbyPlayers,
         mode: mode,

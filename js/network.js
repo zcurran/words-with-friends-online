@@ -211,7 +211,8 @@ class NetworkManager {
         hostName: this.playerName,
         hostPlayerId: this.playerId,
         mode: options.mode || (this.game ? this.game.mode : 'WWF'),
-        timerMinutes: options.timerMinutes || 0
+        timerMinutes: options.timerMinutes || 0,
+        boardSize: options.boardSize || (this.game ? this.game.boardSize : 15)
       });
     }
 
