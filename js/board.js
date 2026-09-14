@@ -126,10 +126,11 @@ let rawCell = Math.floor((boardAreaPx - 2 * padding - (N - 1) * gap) / N);
 
 // For small to medium boards enforce a minimum readable cell size
 let baseCell = rawCell;
-if (N <= 20) { // enforce min cell for readability
-  const minCell = 80;
-  baseCell = Math.max(rawCell, minCell);
-}
+// Detect small screens (mobile) and enforce a larger minimum cell size for better readability
+const isMobile = window.innerWidth < 600; // approx typical phone width
+const minCell = isMobile ? 100 : 80; // 100px on mobile, 80px otherwise
+baseCell = Math.max(rawCell, minCell);
+
 
 // Total board size before scaling
 const boardPx = N * baseCell + (N - 1) * gap + 2 * padding;
