@@ -135,9 +135,8 @@ baseCell = Math.max(rawCell, minCell);
 // Total board size before scaling
 const boardPx = N * baseCell + (N - 1) * gap + 2 * padding;
 // Scale to fill viewport (allow scaling up)
-const minScale = isMobile ? 0.9 : 1;
-const scale = Math.max(minScale, Math.min(availW / boardPx, availH / boardPx));
-// Apply CSS transform to scale board
+// Scale to fill viewport (allow scaling down)
+const scale = Math.min(1, Math.min(availW / boardPx, availH / boardPx));
 boardEl.style.transform = `scale(${scale})`;
 boardEl.style.transformOrigin = "top left";
 
