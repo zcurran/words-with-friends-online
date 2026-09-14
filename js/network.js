@@ -9,6 +9,7 @@ class NetworkManager {
     this.roomPassword = null;
     this.isHost = false;
     this.connected = false;
+    this.boardSize = 15; // Track current board size so reconnects use the right size
 
     this.onRoomCreated = null;
     this.onRoomJoined = null;
@@ -75,7 +76,11 @@ class NetworkManager {
         console.log('[Network] Socket.io connected to backend. Socket ID:', this.socket.id);
         if (this.roomCode) {
           if (this.isHost) {
-            this.createRoomWithCode(this.roomCode, this.roomPassword);
+            this.createRoomWithCode(this.roomCode, this.roomPassword, {
+              mode: this.game ? this.game.mode : 'WWF',
+              timerMinutes: 0,
+              boardSize: this.boardSize
+            });
           } else {
             this.joinRoomWithCode(this.roomCode, this.roomPassword, this.playerName);
           }
@@ -203,6 +208,7 @@ class NetworkManager {
     this.roomCode = (inviteCode || '').toUpperCase().trim();
     this.roomPassword = password ? String(password).trim() : null;
     this.isHost = true;
+    if (options.boardSize) this.boardSize = options.boardSize;
 
     if (this.socket && this.socket.connected) {
       this.socket.emit('create_room', {
@@ -212,7 +218,7 @@ class NetworkManager {
         hostPlayerId: this.playerId,
         mode: options.mode || (this.game ? this.game.mode : 'WWF'),
         timerMinutes: options.timerMinutes || 0,
-        boardSize: options.boardSize || (this.game ? this.game.boardSize : 15)
+        boardSize: this.boardSize
       });
     }
 

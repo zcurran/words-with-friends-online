@@ -239,6 +239,8 @@ class ScrabbleGame {
     this.mode = mode;
     this.boardSize = Math.max(5, Math.min(100, parseInt(boardSize) || 15));
     const N = this.boardSize;
+    // Keep network layer in sync so socket reconnects re-create the room with the right board size
+    if (this.network) this.network.boardSize = this.boardSize;
     this.board = Array(N).fill(null).map(() => Array(N).fill(null));
     this.consecutivePasses = 0;
     this.gameOver = false;
