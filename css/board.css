@@ -125,23 +125,15 @@
   white-space: nowrap;
 }
 
-/* Hide sub-label when cells are medium (≤20×20) */
-#scrabble-board[data-board-size="md"] .mult-sub,
-#scrabble-board[data-board-size="sm"] .mult-sub,
+/* Hide sub-label only on xs boards (50×50) — all others have readable tile sizes now */
 #scrabble-board[data-board-size="xs"] .mult-sub {
   display: none;
 }
 
-/* On xs boards (50×50), also slightly scale up the main label relative
-   to cell so it stays visible */
+/* On xs boards, scale up label slightly since cells are still quite dense */
 #scrabble-board[data-board-size="xs"] .mult-label {
-  font-size: calc(var(--cell-size) * 0.50);
+  font-size: calc(var(--cell-size) * 0.52);
   letter-spacing: -1px;
-}
-
-/* On xs boards, hide the label text and show color only via a dot */
-#scrabble-board[data-board-size="xs"] .mult-label {
-  font-size: calc(var(--cell-size) * 0.55);
 }
 
 /* Star icon */

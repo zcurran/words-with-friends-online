@@ -115,16 +115,19 @@ class BoardController {
     // Target the largest square that fits in the available space
     const boardAreaPx = Math.min(availW, availH);
 
-    // Gap between cells (scales down for big boards)
+    // Gap between cells
     const gap = N > 25 ? 1 : 2;
 
     // Cell size = (boardArea - 2*padding - (N-1)*gap) / N
     const padding = N > 25 ? 4 : 10;
     let cellPx = Math.floor((boardAreaPx - 2 * padding - (N - 1) * gap) / N);
 
-    // Enforce sensible min/max per board size
-    const maxCell = N <= 11 ? 56 : N <= 15 ? 46 : N <= 20 ? 36 : N <= 25 ? 28 : N <= 35 ? 22 : 16;
-    const minCell = N <= 15 ? 22 : N <= 25 ? 14 : 8;
+    // Comfortable minimum tile sizes — prefer scrolling over crushing tiles.
+    // All boards get at least 32px cells so letters stay readable.
+    // Only cap max for small boards so they don't look oversized.
+    const minCell = N <= 15 ? 32 : 36;
+    const maxCell = N <= 11 ? 56 : N <= 15 ? 46 : 9999;
+
     cellPx = Math.min(cellPx, maxCell);
     cellPx = Math.max(cellPx, minCell);
 
@@ -143,7 +146,7 @@ class BoardController {
     boardEl.style.gridTemplateRows    = 'repeat(' + N + ', ' + cellPx + 'px)';
 
     // ─── Board size category for CSS targeting ────────────────────────────
-    // Drives which labels/text are shown
+    // All boards now have readable cells, so show labels on all sizes except xs
     boardEl.dataset.boardSize =
       N <= 11 ? 'xl' :
       N <= 15 ? 'lg' :
