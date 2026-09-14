@@ -128,14 +128,14 @@ let rawCell = Math.floor((boardAreaPx - 2 * padding - (N - 1) * gap) / N);
 let baseCell = rawCell;
 // Detect small screens (mobile) and enforce a larger minimum cell size for better readability
 const isMobile = window.innerWidth < 600; // approx typical phone width
-const minCell = isMobile ? 100 : 80; // 100px on mobile, 80px otherwise
+const minCell = isMobile ? 120 : 80; // 120px on mobile, 80px otherwise
 baseCell = Math.max(rawCell, minCell);
 
 
 // Total board size before scaling
 const boardPx = N * baseCell + (N - 1) * gap + 2 * padding;
 // Scale to fill viewport (allow scaling up)
-const scale = Math.min(availW / boardPx, availH / boardPx);
+const scale = Math.max(0.9, Math.min(availW / boardPx, availH / boardPx));
 // Apply CSS transform to scale board
 boardEl.style.transform = `scale(${scale})`;
 boardEl.style.transformOrigin = "top left";
