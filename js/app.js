@@ -436,6 +436,37 @@ document.addEventListener('DOMContentLoaded', () => {
         readyBadge.className = 'lobby-player-ready';
         readyBadge.innerText = '✓ Ready';
         rightCol.appendChild(readyBadge);
+
+        // Host-only: show a kick button for any non-host human player
+        if (isHost && !p.isHost && p.id !== game.network.playerId) {
+          const kickBtn = document.createElement('button');
+          kickBtn.type = 'button';
+          kickBtn.className = 'action-btn';
+          kickBtn.style.cssText = [
+            'background: rgba(239,68,68,0.15)',
+            'color: #ef4444',
+            'border: 1px solid rgba(239,68,68,0.4)',
+            'font-size: 11px',
+            'padding: 2px 8px',
+            'border-radius: 4px',
+            'cursor: pointer',
+            'transition: background 0.2s'
+          ].join(';');
+          kickBtn.innerText = '⊘ Remove';
+          kickBtn.title = 'Remove this player from the lobby';
+          kickBtn.onmouseenter = () => { kickBtn.style.background = 'rgba(239,68,68,0.35)'; };
+          kickBtn.onmouseleave = () => { kickBtn.style.background = 'rgba(239,68,68,0.15)'; };
+          kickBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (!confirm('Remove "' + p.name + '" from the lobby?')) return;
+            // Optimistically remove from local list
+            lobbyPlayers = lobbyPlayers.filter(lp => lp.id !== p.id);
+            renderLobbyRoster();
+            // Send kick to server
+            game.network.kickPlayer(p.id);
+          };
+          rightCol.appendChild(kickBtn);
+        }
       }
 
       item.appendChild(rightCol);
@@ -498,6 +529,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         renderLobbyRoster();
       }
+    }
+  };
+
+  // Kicked: this local client was removed from the lobby by the host
+  game.onKicked = (data) => {
+    // Clear local room state
+    lobbyPlayers = [{ id: game.network.playerId, name: localPlayerName, isBot: false, isHost: false }];
+    localStorage.removeItem('wwf_room_code');
+    sessionStorage.removeItem('wwf_is_host');
+    currentRoomCode = 'WWF-' + Math.floor(1000 + Math.random() * 9000);
+    isHost = false;
+    updateRoomUI(currentRoomCode, false);
+    renderLobbyRoster();
+    // Show the lobby modal with the reason
+    openLobbyModal();
+    // Notify the user
+    const msg = (data && data.message) || 'You were removed from the lobby by the host.';
+    // Use a styled toast-like banner instead of a blocking alert
+    const banner = document.createElement('div');
+    banner.style.cssText = [
+      'position:fixed', 'top:20px', 'left:50%', 'transform:translateX(-50%)',
+      'background:#ef4444', 'color:#fff', 'font-size:14px', 'font-weight:700',
+      'padding:12px 28px', 'border-radius:10px', 'z-index:99999',
+      'box-shadow:0 4px 24px rgba(0,0,0,0.45)', 'pointer-events:none',
+      'animation:fadeInDown 0.3s ease'
+    ].join(';');
+    banner.innerText = '⊘ ' + msg;
+    document.body.appendChild(banner);
+    setTimeout(() => banner.remove(), 5000);
+  };
+
+  // Another player was kicked – refresh the lobby roster
+  game.onPlayerKicked = (data) => {
+    if (data && data.playerId) {
+      lobbyPlayers = lobbyPlayers.filter(p => p.id !== data.playerId);
+      renderLobbyRoster();
     }
   };
 

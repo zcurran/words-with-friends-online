@@ -168,6 +168,25 @@ class NetworkManager {
         }
       });
 
+      // Host removed this client from the lobby
+      this.socket.on('kicked', (data) => {
+        console.warn('[Network] Kicked from room:', data && data.message);
+        if (this.game && this.game.onKicked) {
+          this.game.onKicked(data);
+        }
+      });
+
+      // Another player was kicked – roster updated
+      this.socket.on('player_kicked', (data) => {
+        console.log('[Network] Player kicked:', data && data.playerName);
+        if (data && data.session && this.game && this.game.applyFullState) {
+          this.game.applyFullState(data.session);
+        }
+        if (this.game && this.game.onPlayerKicked) {
+          this.game.onPlayerKicked(data);
+        }
+      });
+
       this.socket.on('chat_message', (data) => {
         console.log('[Network] chat_message received:', data);
         if (this.game && this.game.onChatMessage) {
@@ -235,6 +254,18 @@ class NetworkManager {
       roomCode: this.roomCode,
       playerId: this.playerId
     });
+  }
+
+  // Host removes a player from the lobby
+  kickPlayer(targetPlayerId) {
+    if (!this.roomCode || !this.isHost) return;
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('kick_player', {
+        inviteCode: this.roomCode,
+        requesterId: this.playerId,
+        targetPlayerId: targetPlayerId
+      });
+    }
   }
 
   // Synchronize player positions (staged tiles and cursor preview)

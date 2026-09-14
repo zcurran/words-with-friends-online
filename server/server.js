@@ -606,6 +606,76 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Host kicks a player from the lobby (pre-game only)
+  socket.on('kick_player', (data = {}) => {
+    try {
+      const inviteCode = data.inviteCode || (socket.data && socket.data.inviteCode);
+      if (!inviteCode) return;
+      const session = sessions.get(inviteCode);
+      if (!session) return;
+
+      // Only the host is allowed to kick
+      const requesterId = data.requesterId || (socket.data && socket.data.playerId);
+      const requester = session.players.find(p => p.id === requesterId);
+      if (!requester || !requester.isHost) {
+        socket.emit('error_feedback', { message: 'Only the host can remove players.' });
+        return;
+      }
+
+      const targetId = data.targetPlayerId;
+      if (!targetId || targetId === requesterId) return; // Cannot kick yourself
+
+      const targetIndex = session.players.findIndex(p => p.id === targetId);
+      if (targetIndex === -1) return;
+
+      const target = session.players[targetIndex];
+
+      // Prevent kicking mid-game (game has started when PLAY actions exist)
+      const isGameStarted = session.moveHistory.some(m => m.action === 'PLAY');
+      if (isGameStarted) {
+        socket.emit('error_feedback', { message: 'Cannot kick players after the game has started.' });
+        return;
+      }
+
+      // Notify the kicked player before removing them
+      if (target.socketId) {
+        io.to(target.socketId).emit('kicked', {
+          message: 'You have been removed from the lobby by the host.',
+          inviteCode: inviteCode
+        });
+      }
+
+      // Remove from session roster and return tiles to bag
+      if (target.rack && target.rack.length > 0) {
+        session.tileBag.push(...target.rack);
+      }
+      session.players.splice(targetIndex, 1);
+      session.players.forEach((p, idx) => { p.seatIndex = idx; });
+      if (session.currentTurnIndex >= session.players.length) session.currentTurnIndex = 0;
+
+      session.moveHistory.unshift({
+        playerName: target.name,
+        playerColor: target.color,
+        action: 'KICK',
+        description: 'was removed from the lobby by the host.',
+        score: 0,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+
+      console.log('[Kick] Host removed player:', target.name, 'from room:', inviteCode);
+
+      // Broadcast updated state to remaining players
+      io.to(inviteCode).emit('player_kicked', {
+        playerId: targetId,
+        playerName: target.name,
+        session: serializeSession(session)
+      });
+      io.to(inviteCode).emit('sync_state', serializeSession(session));
+    } catch (err) {
+      console.error('[Error kick_player]', err);
+    }
+  });
+
   // Disconnect handler
   socket.on('disconnect', () => {
     console.log('[Socket.io] Client disconnected:', socket.id);
