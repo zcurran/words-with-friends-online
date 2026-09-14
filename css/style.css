@@ -14,10 +14,23 @@ body {
     radial-gradient(ellipse at 60% 30%, rgba(10, 40, 80, 0.45) 0%, transparent 50%),
     linear-gradient(160deg, #0e1a2b 0%, #0b1a14 45%, #10122a 100%);
   color: #f7fafc;
-  min-height: 100vh;
+  /* Lock to viewport — no page scroll on desktop */
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
+}
+
+/* Allow scroll on small/mobile screens */
+@media (max-width: 1024px) {
+  body {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    min-height: 100vh;
+  }
 }
 
 /* Header */
@@ -220,11 +233,13 @@ body {
 .main-content {
   display: flex;
   flex: 1;
+  min-height: 0;          /* allow flex child to shrink below content size */
   max-width: 1440px;
   margin: 0 auto;
   width: 100%;
   padding: 16px;
   gap: 20px;
+  overflow: hidden;        /* prevent main content from causing page scroll */
 }
 
 @media (max-width: 1024px) {
@@ -393,10 +408,13 @@ body {
 /* Center Game Area */
 .game-center {
   flex: 1;
+  min-width: 0;
+  min-height: 0;         /* allow shrink in flex context */
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 14px;
+  overflow: hidden;      /* contain the board transform area */
 }
 
 /* Live Score Preview Pill */

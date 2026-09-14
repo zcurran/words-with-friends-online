@@ -106,11 +106,11 @@ class BoardController {
     if (!boardEl) return;
 
     // ─── Calculate available space ────────────────────────────────────────
-    // Available width: viewport minus sidebar (280px) minus padding/gap (56px)
-    // Available height: viewport minus header (~62px) minus rack (~100px) minus padding (32px)
+    // Available height: viewport minus header (~62px) minus score-preview (~48px)
+    //   minus rack shelf (~110px) minus vertical padding/gaps (~40px)
     const sidebarW  = window.innerWidth >= 1024 ? 300 : 0;
     const availW    = window.innerWidth  - sidebarW - 56;
-    const availH    = window.innerHeight - 62 - 100 - 32;
+    const availH    = window.innerHeight - 62 - 48 - 110 - 40;
 
     // Target the largest square that fits in the available space
     const boardAreaPx = Math.min(availW, availH);
@@ -126,10 +126,10 @@ let rawCell = Math.floor((boardAreaPx - 2 * padding - (N - 1) * gap) / N);
 
 // For small to medium boards enforce a minimum readable cell size
 let baseCell = rawCell;
-// Detect small screens (mobile) and enforce a larger minimum cell size for better readability
-const isMobile = window.innerWidth < 600; // approx typical phone width
-const minCell = isMobile ? 120 : 80; // 120px on mobile, 80px otherwise
-baseCell = Math.max(rawCell, minCell);
+// For desktop, don't enforce a minimum — let it shrink to fit the screen
+const isMobile = window.innerWidth < 600;
+const minCell = isMobile ? 120 : 0; // mobile: 120px min; desktop: no floor
+baseCell = isMobile ? Math.max(rawCell, minCell) : rawCell;
 
 
 // Total board size before scaling
