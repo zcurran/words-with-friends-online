@@ -119,7 +119,7 @@ class BoardController {
 const gap = N > 30 ? 1 : N > 20 ? 1 : 2;
 
 // Desired minimum cell size for readability
-const minCell = 36;
+const minCell = 48;
 
 // Compute raw cell size based on available space
 const padding = N > 25 ? 4 : 10;
@@ -128,8 +128,8 @@ let baseCell = Math.max(rawCell, minCell);
 
 // Total board size before scaling
 const boardPx = N * baseCell + (N - 1) * gap + 2 * padding;
-// Scale down if board exceeds viewport
-const scale = Math.min(1, availW / boardPx, availH / boardPx);
+// Scale to fill viewport (allow scaling up)
+const scale = Math.min(availW / boardPx, availH / boardPx);
 // Apply CSS transform to scale board
 boardEl.style.transform = `scale(${scale})`;
 boardEl.style.transformOrigin = "top left";
