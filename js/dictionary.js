@@ -1,4 +1,4 @@
-﻿// Words with Friends / Scrabble Dictionary Engine
+// Words with Friends / Scrabble Dictionary Engine
 class GameDictionary {
   constructor() {
     this.words = new Set();
@@ -84,7 +84,7 @@ class GameDictionary {
       "CAT","DOG","THE","AND","FOR","ARE","BUT","NOT","YOU","ALL","ANY","CAN","HAD","HER","WAS","ONE","OUR","OUT","DAY",
       "GET","HAS","HIM","HIS","HOW","MAN","NEW","NOW","OLD","SEE","TWO","WAY","WHO","BOY","DID","ITS","LET","PUT","SAY",
       "SHE","TOO","USE","WORD","PLAY","GAME","TILE","BOARD","FRIEND","SCORE","TRIPLE","DOUBLE","LETTER","BONUS","START",
-      "WINNER","POINTS","RACK","PLAYER","PLAYERS","TURN","SOLARIS","SENA","ANT","BEE","CAR","DUCK","EAGLE","FOX","GOAT","HAWK",
+      "WINNER","POINTS","RACK","PLAYER","PLAYERS","TURN","ANT","BEE","CAR","DUCK","EAGLE","FOX","GOAT","HAWK",
       "IBIS","JAY","KOALA","LION","MOOSE","NEWT","OWL","PIG","QUAIL","ROBIN","SWAN","TIGER","URCHIN","VIPER","WOLF",
       "YAK","ZEBRA","ABOUT","ABOVE","ACTOR","ACUTE","ADMIT","ADOPT","ADULT","AFTER","AGAIN","AGENT","AGREE","AHEAD",
       "ALARM","ALBUM","ALERT","ALIKE","ALIVE","ALLOW","ALONE","ALONG","ALTER","AMONG","ANGER","ANGLE","ANGRY","APART",
@@ -130,6 +130,11 @@ class GameDictionary {
 }
 
 const DICTIONARY = new GameDictionary();
+if (typeof window !== 'undefined' && typeof fetch === 'function') {
+  DICTIONARY.init();
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { GameDictionary, DICTIONARY };
 }
+

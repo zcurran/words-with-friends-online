@@ -8,6 +8,7 @@
 const express = require('express');
 const http = require('http');
 const path = require('path');
+const fs = require('fs');
 const { Server } = require('socket.io');
 const cors = require('cors');
 
@@ -19,6 +20,22 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 8080;
 const rootDir = path.resolve(__dirname, '..');
+
+// 0. Tournament Dictionary Initialization
+const dictionaryWords = new Set();
+try {
+  const dictPath = path.join(rootDir, 'data', 'enable1.txt');
+  if (fs.existsSync(dictPath)) {
+    const lines = fs.readFileSync(dictPath, 'utf8').split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      const w = lines[i].trim().toUpperCase();
+      if (w.length >= 2) dictionaryWords.add(w);
+    }
+    console.log(`[Server Dictionary] Loaded ${dictionaryWords.size} authentic words from ${dictPath}`);
+  }
+} catch (err) {
+  console.warn('[Server Dictionary] Could not load dictionary file:', err.message);
+}
 
 // 1. Static Web Hosting for Frontend
 app.use(cors());
@@ -566,6 +583,24 @@ io.on('connection', (socket) => {
     const playerId = data.playerId || (socket.data && socket.data.playerId);
     const player = session.players.find(p => p.id === playerId);
     if (!player) return;
+
+    // Validate words formed against the dictionary
+    if (dictionaryWords.size > 0 && Array.isArray(data.wordsFormed) && data.wordsFormed.length > 0) {
+      const invalidWords = [];
+      for (const item of data.wordsFormed) {
+        const word = (item.word || '').trim().toUpperCase();
+        if (!dictionaryWords.has(word)) {
+          invalidWords.push(word);
+        }
+      }
+      if (invalidWords.length > 0) {
+        console.warn(`[Invalid Move Rejected] ${player.name} in room ${inviteCode} tried to play invalid word(s): ${invalidWords.join(', ')}`);
+        socket.emit('error_feedback', {
+          message: `Move rejected: "${invalidWords.join('", "')}" is not an actual word in the dictionary.`
+        });
+        return;
+      }
+    }
 
     const newTiles = data.newTiles || [];
     // Apply tiles to session board

@@ -117,6 +117,13 @@ class NetworkManager {
         }
       });
 
+      this.socket.on('error_feedback', (data) => {
+        console.warn('[Network] Error feedback:', data);
+        if (typeof AUDIO !== 'undefined' && AUDIO.playBuzz) AUDIO.playBuzz();
+        const msg = data && data.message ? data.message : 'Invalid action.';
+        alert(msg);
+      });
+
       this.socket.on('player_joined', (data) => {
         console.log('[Network] Another player joined:', data.player);
         if (data.session && this.game && this.game.applyFullState) {
