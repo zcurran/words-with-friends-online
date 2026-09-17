@@ -115,6 +115,90 @@ function drawTiles(bag, count) {
 // inviteCode -> Session object
 const sessions = new Map();
 
+function initMatchStats() {
+  return {
+    totalWords: 0,
+    totalTurns: 0,
+    totalBingos: 0,
+    bestWord: null, // { word, points, playerName, playerColor }
+    longestWord: null, // { word, length, playerName, playerColor }
+    playerStats: {} // playerId -> { wordsCount, turnsCount, totalPoints, bestWord, longestWord, bingosCount, tilesPlaced }
+  };
+}
+
+function ensurePlayerStat(session, player) {
+  if (!session.stats) session.stats = initMatchStats();
+  if (!session.stats.playerStats) session.stats.playerStats = {};
+  if (!session.stats.playerStats[player.id]) {
+    session.stats.playerStats[player.id] = {
+      name: player.name,
+      color: player.color,
+      wordsCount: 0,
+      turnsCount: 0,
+      totalPoints: 0,
+      bestWord: null,
+      longestWord: null,
+      bingosCount: 0,
+      tilesPlaced: 0
+    };
+  }
+  return session.stats.playerStats[player.id];
+}
+
+function recordMoveStats(session, player, wordsFormed = [], totalScore = 0, isBingo = false, tileCount = 0) {
+  if (!player) return;
+  const ps = ensurePlayerStat(session, player);
+  ps.turnsCount++;
+  ps.totalPoints += totalScore;
+  ps.tilesPlaced += tileCount;
+  if (isBingo) {
+    ps.bingosCount++;
+    session.stats.totalBingos = (session.stats.totalBingos || 0) + 1;
+  }
+  session.stats.totalTurns = (session.stats.totalTurns || 0) + 1;
+
+  for (const w of wordsFormed) {
+    const wordUpper = (w.word || '').toUpperCase();
+    const wordPts = parseInt(w.points) || 0;
+    if (!wordUpper) continue;
+
+    ps.wordsCount++;
+    session.stats.totalWords = (session.stats.totalWords || 0) + 1;
+
+    if (!ps.bestWord || wordPts > ps.bestWord.points) {
+      ps.bestWord = { word: wordUpper, points: wordPts };
+    }
+    if (!ps.longestWord || wordUpper.length > ps.longestWord.length) {
+      ps.longestWord = { word: wordUpper, length: wordUpper.length };
+    }
+
+    if (!session.stats.bestWord || wordPts > session.stats.bestWord.points) {
+      session.stats.bestWord = {
+        word: wordUpper,
+        points: wordPts,
+        playerName: player.name,
+        playerColor: player.color
+      };
+    }
+    if (!session.stats.longestWord || wordUpper.length > session.stats.longestWord.length) {
+      session.stats.longestWord = {
+        word: wordUpper,
+        length: wordUpper.length,
+        playerName: player.name,
+        playerColor: player.color
+      };
+    }
+  }
+}
+
+function recordNonPlayTurn(session, player) {
+  if (!player) return;
+  const ps = ensurePlayerStat(session, player);
+  ps.turnsCount++;
+  if (!session.stats) session.stats = initMatchStats();
+  session.stats.totalTurns = (session.stats.totalTurns || 0) + 1;
+}
+
 function serializeSession(session) {
   return {
     inviteCode: session.inviteCode,
@@ -139,7 +223,8 @@ function serializeSession(session) {
     tileBagCount: session.tileBag.length,
     moveHistory: session.moveHistory,
     gameOver: session.gameOver,
-    stagedPositions: session.stagedPositions || {}
+    stagedPositions: session.stagedPositions || {},
+    stats: session.stats || null
   };
 }
 
@@ -281,6 +366,7 @@ io.on('connection', (socket) => {
         ],
         stagedPositions: {},
         gameOver: false,
+        stats: initMatchStats(),
         createdAt: Date.now()
       };
 
@@ -512,6 +598,7 @@ io.on('connection', (socket) => {
     player.score += score;
 
     delete session.stagedPositions[playerId];
+    recordMoveStats(session, player, data.wordsFormed || [], score, !!data.isBingo, newTiles.length);
 
     const wordsStr = (data.wordsFormed || []).map(w => w.word + ' (' + w.points + ' pts)').join(', ');
     console.log(`[Play Move] ${player.name} (${inviteCode}) played: ${wordsStr || (score + ' pts')} (${newTiles.length} tiles)`);
@@ -563,6 +650,7 @@ io.on('connection', (socket) => {
     }
 
     delete session.stagedPositions[playerId];
+    recordNonPlayTurn(session, player);
     advanceTurn(session);
     io.to(inviteCode).emit('turn_passed', { playerId: playerId, session: serializeSession(session) });
     io.to(inviteCode).emit('sync_state', serializeSession(session));
@@ -600,9 +688,65 @@ io.on('connection', (socket) => {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       });
 
+      recordNonPlayTurn(session, player);
       advanceTurn(session);
       io.to(inviteCode).emit('tiles_swapped', { playerId: player.id, count: swapped.length, session: serializeSession(session) });
       io.to(inviteCode).emit('sync_state', serializeSession(session));
+    }
+  });
+
+  // Request Rematch: Host or players restart with same room & participants
+  socket.on('request_rematch', (data = {}) => {
+    try {
+      const inviteCode = data.inviteCode || (socket.data && socket.data.inviteCode);
+      if (!inviteCode) return;
+      const session = sessions.get(inviteCode);
+      if (!session) return;
+
+      const N = session.boardSize || 15;
+      session.board = Array(N).fill(null).map(() => Array(N).fill(null));
+
+      // Rebuild and shuffle bag for current player count
+      const scale = tileScaleForPlayers(session.players.length);
+      session.tileBag = buildTileBag(session.mode, scale);
+
+      // Reset scores and deal fresh racks
+      for (const player of session.players) {
+        player.score = 0;
+        player.rack = drawTiles(session.tileBag, 7);
+      }
+
+      session.stagedPositions = {};
+      session.gameOver = false;
+      // Rotate first turn to give turn 1 advantage to the next player
+      session.currentTurnIndex = (session.currentTurnIndex + 1) % session.players.length;
+
+      session.stats = initMatchStats();
+
+      const requesterId = data.requesterId || (socket.data && socket.data.playerId);
+      const requester = session.players.find(p => p.id === requesterId);
+      const requesterName = requester ? requester.name : 'A player';
+
+      session.moveHistory = [
+        {
+          playerName: 'REMATCH',
+          playerColor: '#ff9800',
+          action: 'START',
+          description: '⚡ Rematch started by ' + requesterName + '! Opening turn goes to ' + session.players[session.currentTurnIndex].name + '.',
+          score: 0,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ];
+
+      console.log('[Rematch] Started in room:', inviteCode, 'by:', requesterName);
+
+      io.to(inviteCode).emit('rematch_started', {
+        session: serializeSession(session),
+        requesterName: requesterName
+      });
+      io.to(inviteCode).emit('sync_state', serializeSession(session));
+    } catch (err) {
+      console.error('[Error request_rematch]', err);
     }
   });
 

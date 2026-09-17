@@ -198,6 +198,13 @@ class NetworkManager {
           this.game.onChatMessage(data);
         }
       });
+
+      this.socket.on('rematch_started', (data) => {
+        console.log('[Network] rematch_started received:', data);
+        if (this.game && this.game.handleRematchStarted) {
+          this.game.handleRematchStarted(data);
+        }
+      });
     } catch (e) {
       console.warn('[Network] Socket.io init error:', e);
     }
@@ -376,6 +383,18 @@ class NetworkManager {
     console.log('[BroadcastChannel] Action:', msg.type, msg.payload);
     if (this.game && this.game.onNetworkEvent) {
       this.game.onNetworkEvent(msg.type, msg.payload);
+    }
+  }
+
+  // Trigger room rematch across all players
+  requestRematch() {
+    if (this.socket && this.socket.connected && this.roomCode) {
+      this.socket.emit('request_rematch', {
+        inviteCode: this.roomCode,
+        requesterId: this.playerId
+      });
+    } else {
+      this.sendAction('REMATCH_STARTED', {});
     }
   }
 

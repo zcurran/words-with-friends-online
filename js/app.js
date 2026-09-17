@@ -927,28 +927,215 @@ document.addEventListener('DOMContentLoaded', () => {
     modal.classList.remove('hidden');
   }
 
-  // 9. Modals: Game Over
+  function showToast(msg, bgColor = '#ff9800') {
+    const banner = document.createElement('div');
+    banner.style.cssText = [
+      'position:fixed', 'top:20px', 'left:50%', 'transform:translateX(-50%)',
+      'background:' + bgColor, 'color:#000', 'font-size:14px', 'font-weight:800',
+      'padding:12px 24px', 'border-radius:10px', 'z-index:99999',
+      'box-shadow:0 6px 28px rgba(0,0,0,0.5)', 'pointer-events:none',
+      'transition:opacity 0.3s ease', 'letter-spacing:0.3px'
+    ].join(';');
+    banner.innerText = msg;
+    document.body.appendChild(banner);
+    setTimeout(() => {
+      banner.style.opacity = '0';
+      setTimeout(() => banner.remove(), 300);
+    }, 3500);
+  }
+
+  // 9. Modals: Game Over & Match Recap
   function showGameOverModal(game) {
     const modal = document.getElementById('game-over-modal');
+    if (!modal) return;
+
     const rankingsEl = document.getElementById('game-over-rankings');
-    if (!modal || !rankingsEl) return;
-    rankingsEl.innerHTML = '';
+    const titleEl = document.getElementById('game-over-title');
+    const subtitleEl = document.getElementById('game-over-subtitle');
+    const tbody = document.getElementById('player-stats-tbody');
+
+    const highlightBestWord = document.getElementById('highlight-best-word');
+    const highlightBestWordSub = document.getElementById('highlight-best-word-sub');
+    const highlightLongestWord = document.getElementById('highlight-longest-word');
+    const highlightLongestWordSub = document.getElementById('highlight-longest-word-sub');
+    const highlightBingos = document.getElementById('highlight-bingos');
+    const highlightAvgTurn = document.getElementById('highlight-avg-turn');
+    const highlightTotalWords = document.getElementById('highlight-total-words');
 
     const sorted = [...game.players].sort((a, b) => b.score - a.score);
-    sorted.forEach((p, idx) => {
-      const row = document.createElement('div');
-      row.className = 'rank-row';
-      const medal = idx === 0 ? '🥇 1st' : idx === 1 ? '🥈 2nd' : idx === 2 ? '🥉 3rd' : (idx + 1) + 'th';
-      row.innerHTML = 
-        '<span class="rank-badge">' + medal + '</span>' +
-        '<span class="rank-name" style="color: ' + p.color + '">' + p.name + '</span>' +
-        '<span class="rank-score">' + p.score + ' pts</span>';
-      rankingsEl.appendChild(row);
-    });
+    const winner = sorted[0];
+    const isTie = sorted.length > 1 && sorted[0].score === sorted[1].score && sorted[0].score > 0;
+
+    // Banner
+    if (titleEl) {
+      if (isTie) {
+        titleEl.innerText = '🤝 Thrilling Tie Game!';
+        titleEl.style.color = '#ffd54f';
+      } else if (winner) {
+        titleEl.innerText = '🏆 Victory for ' + winner.name + '!';
+        titleEl.style.color = winner.color || '#ffd54f';
+      }
+    }
+    if (subtitleEl) {
+      if (isTie) {
+        subtitleEl.innerText = 'Top players tied at ' + (winner ? winner.score : 0) + ' points!';
+      } else if (winner) {
+        const margin = sorted.length > 1 ? (winner.score - sorted[1].score) : 0;
+        subtitleEl.innerText = margin > 0 
+          ? 'Finished with ' + winner.score + ' pts (+' + margin + ' pt margin over 2nd place)'
+          : 'Finished with ' + winner.score + ' points!';
+      }
+    }
+
+    // Standings Rankings
+    if (rankingsEl) {
+      rankingsEl.innerHTML = '';
+      sorted.forEach((p, idx) => {
+        const row = document.createElement('div');
+        row.className = 'rank-row' + (idx === 0 && !isTie ? ' winner-row' : '');
+        const medal = idx === 0 ? '🥇 1st' : idx === 1 ? '🥈 2nd' : idx === 2 ? '🥉 3rd' : (idx + 1) + 'th';
+        row.innerHTML = 
+          '<span class="rank-badge">' + medal + '</span>' +
+          '<span class="rank-name" style="color: ' + p.color + '">' + p.name + (p.isBot ? ' 🤖' : '') + '</span>' +
+          '<span class="rank-score">' + p.score + ' pts</span>';
+        rankingsEl.appendChild(row);
+      });
+    }
+
+    // Match Highlights
+    const stats = game.stats || {};
+    if (highlightBestWord && highlightBestWordSub) {
+      if (stats.bestWord && stats.bestWord.word) {
+        highlightBestWord.innerText = stats.bestWord.word + ' (' + stats.bestWord.points + ' pts)';
+        highlightBestWordSub.innerText = 'by ' + (stats.bestWord.playerName || 'Player');
+        highlightBestWord.style.color = stats.bestWord.playerColor || '#ffd54f';
+      } else {
+        highlightBestWord.innerText = '--';
+        highlightBestWordSub.innerText = 'No words formed';
+      }
+    }
+
+    if (highlightLongestWord && highlightLongestWordSub) {
+      if (stats.longestWord && stats.longestWord.word) {
+        highlightLongestWord.innerText = stats.longestWord.word + ' (' + stats.longestWord.length + ' L)';
+        highlightLongestWordSub.innerText = 'by ' + (stats.longestWord.playerName || 'Player');
+        highlightLongestWord.style.color = stats.longestWord.playerColor || '#ffd54f';
+      } else {
+        highlightLongestWord.innerText = '--';
+        highlightLongestWordSub.innerText = 'No words formed';
+      }
+    }
+
+    if (highlightBingos) {
+      highlightBingos.innerText = stats.totalBingos || 0;
+    }
+
+    if (highlightAvgTurn && highlightTotalWords) {
+      const totalScore = game.players.reduce((sum, p) => sum + (p.score || 0), 0);
+      const totalTurns = stats.totalTurns || 1;
+      const avg = (totalScore / Math.max(1, totalTurns)).toFixed(1);
+      highlightAvgTurn.innerText = avg + ' pts';
+      highlightTotalWords.innerText = (stats.totalWords || 0) + ' total words';
+    }
+
+    // Player breakdown table
+    if (tbody) {
+      tbody.innerHTML = '';
+      sorted.forEach((p) => {
+        const pStats = (stats.playerStats && stats.playerStats[p.id]) || {};
+        const turns = pStats.turnsCount || (p.score > 0 ? 1 : 0);
+        const avg = turns > 0 ? (p.score / turns).toFixed(1) : '0.0';
+        const best = pStats.bestWord ? (pStats.bestWord.word + ' (' + pStats.bestWord.points + 'p)') : '--';
+        const longest = pStats.longestWord ? (pStats.longestWord.word + ' (' + pStats.longestWord.length + 'L)') : '--';
+        const bingos = pStats.bingosCount || 0;
+        const tiles = pStats.tilesPlaced || 0;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = 
+          '<td style="font-weight: 700; color: ' + p.color + ';">' + p.name + (p.isBot ? ' 🤖' : '') + '</td>' +
+          '<td style="text-align: center; font-weight: 800; color: #ffd54f;">' + p.score + '</td>' +
+          '<td style="text-align: center; color: #38bdf8;">' + avg + '</td>' +
+          '<td style="text-align: center; font-weight: 600;">' + best + '</td>' +
+          '<td style="text-align: center;">' + longest + '</td>' +
+          '<td style="text-align: center; color: #a855f7; font-weight: 700;">' + (bingos > 0 ? '⚡ ' + bingos : '0') + '</td>' +
+          '<td style="text-align: center; color: #94a3b8;">' + tiles + '</td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Buttons
+    const btnRematch = document.getElementById('btn-instant-rematch');
+    if (btnRematch) {
+      btnRematch.innerText = '⚡ Instant Rematch';
+      btnRematch.onclick = () => {
+        const isMultiplayer = game.network && game.network.socket && game.network.socket.connected && game.network.roomCode && game.network.roomCode !== 'LOCAL';
+        if (isMultiplayer) {
+          btnRematch.innerText = '⚡ Requesting Rematch...';
+          game.network.requestRematch();
+        } else {
+          modal.classList.add('hidden');
+          boardCtrl.recallAll();
+          game.rematch();
+          showToast('⚡ Rematch started! Opening turn: ' + game.getCurrentPlayer().name, '#ffd54f');
+        }
+      };
+    }
+
+    const btnCopy = document.getElementById('btn-copy-match-summary');
+    if (btnCopy) {
+      btnCopy.onclick = () => {
+        let text = '🏆 Words with Friends Match Recap\n';
+        if (isTie) {
+          text += '🤝 Match ended in a tie!\n';
+        } else if (winner) {
+          text += '🥇 Winner: ' + winner.name + ' (' + winner.score + ' pts)\n';
+        }
+        sorted.slice(0, 5).forEach((p, idx) => {
+          const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (idx + 1) + '.';
+          text += medal + ' ' + p.name + ': ' + p.score + ' pts\n';
+        });
+        if (stats.bestWord && stats.bestWord.word) {
+          text += '🔥 Best Word: ' + stats.bestWord.word + ' (' + stats.bestWord.points + ' pts by ' + stats.bestWord.playerName + ')\n';
+        }
+        if (stats.longestWord && stats.longestWord.word) {
+          text += '📏 Longest Word: ' + stats.longestWord.word + ' (' + stats.longestWord.length + ' letters by ' + stats.longestWord.playerName + ')\n';
+        }
+        text += '\nPlay now: ' + window.location.href;
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => {
+            btnCopy.innerText = '✅ Recap Copied!';
+            showToast('📋 Match recap copied to clipboard!', '#4caf50');
+            setTimeout(() => { btnCopy.innerText = '📋 Copy Match Recap'; }, 2500);
+          }).catch(() => {
+            btnCopy.innerText = '✅ Recap Copied!';
+            setTimeout(() => { btnCopy.innerText = '📋 Copy Match Recap'; }, 2500);
+          });
+        }
+      };
+    }
+
+    const btnLobby = document.getElementById('btn-game-over-lobby');
+    if (btnLobby) {
+      btnLobby.onclick = () => {
+        modal.classList.add('hidden');
+        openLobbyModal();
+      };
+    }
 
     AUDIO.playScoreFanfare(true);
     modal.classList.remove('hidden');
   }
+
+  // Handle rematch starting across network or local
+  game.onRematchStarted = (data) => {
+    const modal = document.getElementById('game-over-modal');
+    if (modal) modal.classList.add('hidden');
+    boardCtrl.recallAll();
+    boardCtrl.renderBoard();
+    const starterName = (data && data.requesterName) ? data.requesterName : (game.getCurrentPlayer() ? game.getCurrentPlayer().name : 'A player');
+    showToast('⚡ Rematch started! Opening turn: ' + (game.getCurrentPlayer() ? game.getCurrentPlayer().name : starterName), '#ffd54f');
+  };
 
   // 10. Modals: Change Player Name
   function openNameModal() {

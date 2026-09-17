@@ -18,6 +18,9 @@ class ScrabbleGame {
     this.turnTimerSec = 0;
     this.timerInterval = null;
     this.timeRemaining = 0;
+    this.stats = this.createInitialMatchStats();
+    this.onRematchStarted = null;
+    this.lastStartingTurnIndex = 0;
 
     this.onStateChange = null;
     this.onLobbyUpdate = null;
@@ -38,6 +41,8 @@ class ScrabbleGame {
         this.handlePlayerLeave(payload);
       } else if (type === 'HEARTBEAT') {
         this.handleHeartbeat(payload);
+      } else if (type === 'REMATCH_STARTED') {
+        this.handleRematchStarted(payload);
       } else if (type === 'REQUEST_SYNC') {
         if (this.network && (this.network.isHost || (this.players[0] && this.players[0].id === this.network.playerId))) {
           this.network.sendAction('STATE_SYNC', this.serializeState());
@@ -247,6 +252,7 @@ class ScrabbleGame {
     this.moveHistory = [];
     this.currentTurnIndex = 0;
     this.turnTimerSec = timerMinutes * 60;
+    this.stats = this.createInitialMatchStats();
 
     const playerColors = [
       '#ff9800', '#2196f3', '#4caf50', '#e91e63', '#9c27b0',
@@ -379,6 +385,7 @@ class ScrabbleGame {
 
     player.score += res.totalScore;
     this.consecutivePasses = 0;
+    this.recordMoveStats(player, res.wordsFormed, res.totalScore, res.isBingo, newTiles.length);
 
     AUDIO.playScoreFanfare(res.isBingo);
 
@@ -419,6 +426,7 @@ class ScrabbleGame {
     if (this.gameOver) return;
     const player = this.getCurrentPlayer();
     this.consecutivePasses++;
+    this.recordNonPlayTurn(player);
 
     this.moveHistory.unshift({
       playerName: player.name,
@@ -471,6 +479,7 @@ class ScrabbleGame {
 
     AUDIO.playShuffle();
     this.consecutivePasses = 0;
+    this.recordNonPlayTurn(player);
 
     this.moveHistory.unshift({
       playerName: player.name,
@@ -685,7 +694,8 @@ class ScrabbleGame {
       mode: this.mode,
       tileBagCount: this.tileBag.length,
       moveHistory: this.moveHistory,
-      gameOver: this.gameOver
+      gameOver: this.gameOver,
+      stats: this.stats
     };
   }
 
@@ -723,6 +733,9 @@ class ScrabbleGame {
     this.mode = state.mode || this.mode;
     this.moveHistory = state.moveHistory || this.moveHistory;
     this.gameOver = !!state.gameOver;
+    if (state.stats) {
+      this.stats = state.stats;
+    }
     this.notifyUpdate();
   }
 
@@ -740,9 +753,163 @@ class ScrabbleGame {
     const player = this.players.find(p => p.id === payload.playerId);
     if (player) {
       player.score += payload.totalScore;
+      this.recordMoveStats(
+        player,
+        payload.wordsFormed || [],
+        payload.totalScore || 0,
+        payload.isBingo || false,
+        (payload.newTiles || []).length
+      );
     }
     AUDIO.playScoreFanfare(payload.isBingo);
     this.advanceTurn();
+  }
+
+  // Match Statistics Tracking
+  createInitialMatchStats() {
+    return {
+      totalWords: 0,
+      totalTurns: 0,
+      totalBingos: 0,
+      bestWord: null, // { word: '...', points: 42, playerName: '...', playerColor: '...' }
+      longestWord: null, // { word: '...', length: 8, playerName: '...', playerColor: '...' }
+      playerStats: {} // playerId -> { wordsCount, turnsCount, totalPoints, bestWord, longestWord, bingosCount, tilesPlaced }
+    };
+  }
+
+  ensurePlayerStat(player) {
+    if (!this.stats) this.stats = this.createInitialMatchStats();
+    if (!this.stats.playerStats) this.stats.playerStats = {};
+    if (!this.stats.playerStats[player.id]) {
+      this.stats.playerStats[player.id] = {
+        name: player.name,
+        color: player.color,
+        wordsCount: 0,
+        turnsCount: 0,
+        totalPoints: 0,
+        bestWord: null,
+        longestWord: null,
+        bingosCount: 0,
+        tilesPlaced: 0
+      };
+    }
+    return this.stats.playerStats[player.id];
+  }
+
+  recordMoveStats(player, wordsFormed = [], totalScore = 0, isBingo = false, tileCount = 0) {
+    if (!player) return;
+    const ps = this.ensurePlayerStat(player);
+    ps.turnsCount++;
+    ps.totalPoints += totalScore;
+    ps.tilesPlaced += tileCount;
+    if (isBingo) {
+      ps.bingosCount++;
+      this.stats.totalBingos = (this.stats.totalBingos || 0) + 1;
+    }
+    this.stats.totalTurns = (this.stats.totalTurns || 0) + 1;
+
+    for (const w of wordsFormed) {
+      const wordUpper = (w.word || '').toUpperCase();
+      const wordPts = parseInt(w.points) || 0;
+      if (!wordUpper) continue;
+
+      ps.wordsCount++;
+      this.stats.totalWords = (this.stats.totalWords || 0) + 1;
+
+      // Player personal best word
+      if (!ps.bestWord || wordPts > ps.bestWord.points) {
+        ps.bestWord = { word: wordUpper, points: wordPts };
+      }
+      // Player personal longest word
+      if (!ps.longestWord || wordUpper.length > ps.longestWord.length) {
+        ps.longestWord = { word: wordUpper, length: wordUpper.length };
+      }
+
+      // Match overall best word
+      if (!this.stats.bestWord || wordPts > this.stats.bestWord.points) {
+        this.stats.bestWord = {
+          word: wordUpper,
+          points: wordPts,
+          playerName: player.name,
+          playerColor: player.color
+        };
+      }
+      // Match overall longest word
+      if (!this.stats.longestWord || wordUpper.length > this.stats.longestWord.length) {
+        this.stats.longestWord = {
+          word: wordUpper,
+          length: wordUpper.length,
+          playerName: player.name,
+          playerColor: player.color
+        };
+      }
+    }
+  }
+
+  recordNonPlayTurn(player) {
+    if (!player) return;
+    const ps = this.ensurePlayerStat(player);
+    ps.turnsCount++;
+    this.stats.totalTurns = (this.stats.totalTurns || 0) + 1;
+  }
+
+  // 1-Click Rematch for local / solo gameplay
+  rematch() {
+    if (this.players.length === 0) return;
+
+    const configs = this.players.map((p, idx) => ({
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      isBot: p.isBot,
+      botLevel: p.botLevel || 'medium'
+    }));
+
+    // Rotate starting player for balanced fairness
+    const nextStartTurn = (this.lastStartingTurnIndex !== undefined ? (this.lastStartingTurnIndex + 1) : 1) % configs.length;
+    this.lastStartingTurnIndex = nextStartTurn;
+
+    this.startNewGame({
+      playerConfigs: configs,
+      mode: this.mode,
+      timerMinutes: this.turnTimerSec ? Math.round(this.turnTimerSec / 60) : 0,
+      boardSize: this.boardSize
+    });
+
+    this.currentTurnIndex = nextStartTurn;
+    this.stats = this.createInitialMatchStats();
+
+    this.moveHistory = [{
+      playerName: 'REMATCH',
+      playerColor: '#ff9800',
+      action: 'START',
+      description: '⚡ Rematch started! Opening turn: ' + this.getCurrentPlayer().name + '.',
+      score: 0,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }];
+
+    AUDIO.playScoreFanfare(false);
+
+    if (this.onRematchStarted) {
+      this.onRematchStarted({ local: true });
+    }
+
+    this.notifyUpdate();
+    this.checkBotTurn();
+  }
+
+  // Handle remote rematch triggered via network (Socket.io or BroadcastChannel)
+  handleRematchStarted(payload = {}) {
+    if (payload && payload.session) {
+      this.applyFullState(payload.session);
+    }
+    this.stats = (payload && payload.session && payload.session.stats) ? payload.session.stats : this.createInitialMatchStats();
+    AUDIO.playScoreFanfare(false);
+
+    if (this.onRematchStarted) {
+      this.onRematchStarted(payload);
+    }
+    this.notifyUpdate();
   }
 
   applyRemotePass(payload) {

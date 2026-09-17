@@ -695,30 +695,170 @@ body {
   color: #94a3b8;
 }
 
-/* Game Over Modal */
+/* Enhanced Game Over & Stats Styles */
+.game-over-modal-box {
+  background: linear-gradient(170deg, rgba(20, 29, 48, 0.98) 0%, rgba(11, 15, 25, 0.98) 100%);
+  border: 1px solid rgba(255, 213, 79, 0.3);
+  border-radius: 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(255, 152, 0, 0.15);
+  backdrop-filter: blur(20px);
+  animation: modalPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalPop {
+  0% { transform: scale(0.92); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.game-over-section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #94a3b8;
+  margin: 14px 0 8px;
+  text-align: left;
+}
+
+.game-over-section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .rank-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 14px;
-  background: rgba(15, 23, 42, 0.5);
-  border-radius: 8px;
+  padding: 10px 16px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
   margin-bottom: 8px;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.rank-row.winner-row {
+  background: linear-gradient(90deg, rgba(255, 213, 79, 0.12) 0%, rgba(255, 152, 0, 0.05) 100%);
+  border: 1px solid rgba(255, 213, 79, 0.4);
+  box-shadow: 0 2px 12px rgba(255, 213, 79, 0.1);
+}
+
+.rank-row:hover {
+  transform: translateY(-1px);
+  background: rgba(30, 41, 59, 0.7);
 }
 
 .rank-badge {
-  font-weight: 800;
+  font-weight: 900;
   font-size: 15px;
+  min-width: 55px;
+  text-align: left;
 }
 
 .rank-name {
+  flex: 1;
   font-weight: 700;
   font-size: 15px;
+  text-align: left;
+  margin-left: 10px;
 }
 
 .rank-score {
-  font-weight: 800;
+  font-weight: 900;
+  font-size: 17px;
+  color: #ffd54f;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Match Highlights Cards */
+.stat-highlight-card {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.stat-highlight-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 213, 79, 0.35);
+  background: rgba(30, 41, 59, 0.7);
+}
+
+.highlight-icon {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+.highlight-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.highlight-value {
   font-size: 16px;
+  font-weight: 900;
+  color: #ffd54f;
+  word-break: break-word;
+  line-height: 1.2;
+}
+
+.highlight-sub {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 3px;
+}
+
+/* Player Stats Table */
+.player-stats-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s ease;
+}
+
+.player-stats-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.player-stats-table td {
+  padding: 8px 6px;
+}
+
+.player-stats-table td:first-child {
+  padding-left: 10px;
+}
+
+/* Rematch Button Pulse */
+.btn-rematch {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.btn-rematch:hover {
+  transform: scale(1.03);
+  box-shadow: 0 6px 22px rgba(255, 152, 0, 0.6);
+  filter: brightness(1.05);
+}
+
+.btn-rematch:active {
+  transform: scale(0.98);
+}
+
+.btn-secondary-action:hover {
+  background: rgba(51, 65, 85, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: #fff !important;
 }
 
 /* Setup Form */
